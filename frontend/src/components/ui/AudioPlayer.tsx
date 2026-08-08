@@ -15,6 +15,8 @@ interface AudioPlayerProps {
   voice?: string
   size?: 'sm' | 'md'
   className?: string
+  /** Optional idle-state label, useful when offering multiple recordings. */
+  label?: string
   /** If set, fetches pre-cached audio via GET from this URL instead of POST /api/tts */
   audioUrl?: string
 }
@@ -26,6 +28,7 @@ export function AudioPlayer({
   voice,
   size = 'sm',
   className = '',
+  label,
   audioUrl,
 }: AudioPlayerProps) {
   const [state, setState] = useState<PlayerState>('idle')
@@ -210,7 +213,7 @@ export function AudioPlayer({
         ? t('stop')
         : state === 'error'
           ? t('retry')
-          : t('listen')
+          : (label ?? t('listen'))
 
   const colorClass =
     state === 'playing'

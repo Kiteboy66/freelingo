@@ -6,8 +6,18 @@ import {
 } from '@/components/lessons/GuidedLessonView'
 
 vi.mock('@/components/ui/AudioPlayer', () => ({
-  AudioPlayer: ({ text }: { text: string }) => (
-    <button type="button">Listen to {text}</button>
+  AudioPlayer: ({
+    text,
+    label,
+    audioUrl,
+  }: {
+    text: string
+    label?: string
+    audioUrl?: string
+  }) => (
+    <button type="button" data-audio-url={audioUrl}>
+      {label ?? `Listen to ${text}`}
+    </button>
   ),
 }))
 
@@ -24,9 +34,7 @@ const flow: GuidedLearningFlow = {
       usage: 'Use this for one person.',
     },
   ],
-  dialogue: [
-    { speaker: 'You', text: 'Molo!', translation: 'Hello!' },
-  ],
+  dialogue: [{ speaker: 'You', text: 'Molo!', translation: 'Hello!' }],
 }
 
 const exercise = {
@@ -79,6 +87,54 @@ describe('GuidedLessonView', () => {
       screen.getByRole('button', { name: 'Listen to Molo!' })
     ).toBeInTheDocument()
     expect(screen.queryByText('Greeting people first matters.')).toBeNull()
+  })
+
+  it('uses two human recordings and an honest sound guide for Unjani', () => {
+    const unjaniFlow: GuidedLearningFlow = {
+      ...flow,
+      phrases: [
+        {
+          text: 'Unjani?',
+          translation: 'How are you? (one person)',
+          chunks: 'Un·ja·ni',
+          usage: 'Ask this after saying hello.',
+        },
+      ],
+    }
+
+    render(
+      <GuidedLessonView
+        flow={unjaniFlow}
+        nativeTitle="Your first conversation"
+        xhosaTitle="Incoko yakho yokuqala"
+        exercises={[exercise]}
+        currentExercise={0}
+        answer=""
+        evaluating={false}
+        completing={false}
+        isReview={false}
+        submitError={false}
+        onAnswerChange={vi.fn()}
+        onSubmitAnswer={vi.fn(async () => {})}
+        onExerciseChange={vi.fn()}
+        onComplete={vi.fn(async () => {})}
+        onExit={vi.fn()}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
+
+    expect(screen.getByText('Native speaker 1')).toHaveAttribute(
+      'data-audio-url',
+      '/audio/xh/native/unjani-speaker-1.mp3'
+    )
+    expect(screen.getByText('Native speaker 2')).toHaveAttribute(
+      'data-audio-url',
+      '/audio/xh/native/unjani-speaker-2.mp3'
+    )
+    expect(screen.getByText('Build the word')).toBeInTheDocument()
+    expect(screen.getByText('u · nja · ni')).toBeInTheDocument()
+    expect(screen.queryByText('Say it in parts')).toBeNull()
   })
 
   it('requires an attempt from memory before revealing choices', () => {

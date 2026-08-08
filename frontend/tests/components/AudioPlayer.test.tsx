@@ -128,6 +128,11 @@ describe('AudioPlayer', () => {
     expect(screen.getByRole('button').className).toContain('custom-audio')
   })
 
+  it('renders a custom recording label while idle', () => {
+    render(<AudioPlayer text="Unjani?" label="Native speaker 1" />)
+    expect(screen.getByText('Native speaker 1')).toBeDefined()
+  })
+
   it('has idle-only color classes (no active/animation/error)', () => {
     render(<AudioPlayer text="Hello" />)
     const c = screen.getByRole('button').className.split(/\s+/).filter(Boolean)
@@ -158,6 +163,30 @@ describe('AudioPlayer', () => {
         body: JSON.stringify({ text: 'Hello world', voice: undefined }),
       })
     )
+  })
+
+  it('fetches a supplied recording URL instead of synthesizing speech', async () => {
+    fetchMock.mockResolvedValueOnce(makeOkResponse())
+
+    render(
+      <AudioPlayer
+        text="Unjani?"
+        audioUrl="/audio/xh/native/unjani-speaker-1.mp3"
+      />
+    )
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button'))
+    })
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/audio/xh/native/unjani-speaker-1.mp3',
+      expect.objectContaining({
+        credentials: 'include',
+        signal: expect.any(AbortSignal),
+      })
+    )
+    expect(fetchMock.mock.calls[0][1].method).toBeUndefined()
   })
 
   it('sends X-TTS-Trace-ID header', async () => {

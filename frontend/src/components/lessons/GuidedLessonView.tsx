@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { AudioPlayer } from '@/components/ui/AudioPlayer'
+import { getXhosaPronunciation } from '@/lib/xhosa-pronunciation'
 
 export interface GuidedPhrase {
   text: string
@@ -132,6 +133,10 @@ export function GuidedLessonView({
   }
 
   const step = teachingSteps[stepIndex]
+  const phrasePronunciation =
+    !inPractice && step.type === 'phrase'
+      ? getXhosaPronunciation(step.phrase.text)
+      : undefined
 
   return (
     <main className="mx-auto w-full max-w-3xl px-4 py-5 sm:px-6 sm:py-8">
@@ -200,18 +205,52 @@ export function GuidedLessonView({
               <p className="text-fl-muted-1 mt-3 text-lg">
                 {step.phrase.translation}
               </p>
-              <AudioPlayer
-                text={step.phrase.text}
-                size="md"
-                className="mt-6 px-5 py-3"
-              />
+              <div className="mt-6 flex flex-wrap gap-3">
+                {phrasePronunciation ? (
+                  phrasePronunciation.recordings.map((recording) => (
+                    <AudioPlayer
+                      key={recording.url}
+                      text={step.phrase.text}
+                      audioUrl={recording.url}
+                      label={recording.label}
+                      size="md"
+                      className="px-5 py-3"
+                    />
+                  ))
+                ) : (
+                  <AudioPlayer
+                    text={step.phrase.text}
+                    size="md"
+                    className="px-5 py-3"
+                  />
+                )}
+              </div>
+              {phrasePronunciation && (
+                <p className="text-fl-muted-3 mt-3 text-sm">
+                  Human isiXhosa recordings · two speakers ·{' '}
+                  <a
+                    href={phrasePronunciation.attribution.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="underline underline-offset-2"
+                  >
+                    source
+                  </a>
+                </p>
+              )}
             </div>
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               <div className="border-fl-border border p-4">
                 <p className="text-fl-muted-3 font-mono text-xs tracking-widest uppercase">
-                  Say it in parts
+                  Build the word
                 </p>
-                <p className="text-fl-fg mt-2 text-lg">{step.phrase.chunks}</p>
+                <p className="text-fl-fg mt-2 text-lg">
+                  {phrasePronunciation?.wordParts ?? step.phrase.chunks}
+                </p>
+                <p className="text-fl-muted-2 mt-2 text-sm leading-6">
+                  {phrasePronunciation?.soundGuide ??
+                    'These are word parts, not an English phonetic spelling. Copy the recording for the real sound.'}
+                </p>
               </div>
               <div className="border-fl-border border p-4">
                 <p className="text-fl-muted-3 font-mono text-xs tracking-widest uppercase">
@@ -251,7 +290,13 @@ export function GuidedLessonView({
                     </p>
                     <p className="text-fl-muted-2 mt-1">{line.translation}</p>
                   </div>
-                  <AudioPlayer text={line.text} size="md" />
+                  <AudioPlayer
+                    text={line.text}
+                    audioUrl={
+                      getXhosaPronunciation(line.text)?.recordings[0]?.url
+                    }
+                    size="md"
+                  />
                 </div>
               ))}
             </div>
@@ -281,7 +326,7 @@ export function GuidedLessonView({
             <p className="text-fl-accent font-mono text-xs font-bold tracking-widest uppercase">
               Recall {currentExercise + 1} of {exercises.length}
             </p>
-            <h2 className="text-fl-fg mt-4 text-2xl font-bold leading-9">
+            <h2 className="text-fl-fg mt-4 text-2xl leading-9 font-bold">
               {exercise.native_question || exercise.question}
             </h2>
             {!showChoices && !evaluated ? (
@@ -351,6 +396,10 @@ export function GuidedLessonView({
                 {!correct && (
                   <AudioPlayer
                     text={exercise.correct_answer}
+                    audioUrl={
+                      getXhosaPronunciation(exercise.correct_answer)
+                        ?.recordings[0]?.url
+                    }
                     size="md"
                     className="mt-4"
                   />
