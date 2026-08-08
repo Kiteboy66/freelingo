@@ -48,6 +48,7 @@ interface GuidedLessonViewProps {
   evaluating: boolean
   completing: boolean
   isReview: boolean
+  isReplay?: boolean
   submitError: boolean
   onAnswerChange: (answer: string) => void
   onSubmitAnswer: () => Promise<void>
@@ -72,6 +73,7 @@ export function GuidedLessonView({
   evaluating,
   completing,
   isReview,
+  isReplay = false,
   submitError,
   onAnswerChange,
   onSubmitAnswer,
@@ -168,6 +170,11 @@ export function GuidedLessonView({
           <p className="text-fl-muted-3 mt-2 font-mono text-xs">
             Step {currentStage} of {totalStages}
           </p>
+          {isReplay && (
+            <p className="text-fl-accent mt-2 font-mono text-xs tracking-widest uppercase">
+              Practice replay · your completed progress is kept
+            </p>
+          )}
         </div>
       </header>
 
@@ -441,7 +448,7 @@ export function GuidedLessonView({
         ) : (
           <button
             type="button"
-            onClick={isReview ? onExit : onComplete}
+            onClick={isReview || isReplay ? onExit : onComplete}
             disabled={(!evaluated && !isReview) || completing}
             className="bg-fl-accent text-fl-accent-fg px-6 py-3 font-mono text-xs font-bold tracking-widest uppercase disabled:opacity-30"
           >
@@ -449,7 +456,9 @@ export function GuidedLessonView({
               ? 'Finishing…'
               : isReview
                 ? 'Back to plan'
-                : 'Finish lesson'}
+                : isReplay
+                  ? 'Finish practice'
+                  : 'Finish lesson'}
           </button>
         )}
       </nav>

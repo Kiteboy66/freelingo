@@ -168,4 +168,43 @@ describe('GuidedLessonView', () => {
 
     expect(onSubmitAnswer).toHaveBeenCalledWith()
   })
+
+  it('labels a replay clearly and finishes without completing twice', () => {
+    const onComplete = vi.fn(async () => {})
+    const onExit = vi.fn()
+    const replayExercise = { ...exercise, user_answer: 'Hello!', score: 1 }
+
+    render(
+      <GuidedLessonView
+        flow={flow}
+        nativeTitle="Your first conversation"
+        xhosaTitle="Incoko yakho yokuqala"
+        exercises={[replayExercise]}
+        currentExercise={0}
+        answer="Hello!"
+        evaluating={false}
+        completing={false}
+        isReview={false}
+        isReplay
+        submitError={false}
+        onAnswerChange={vi.fn()}
+        onSubmitAnswer={vi.fn(async () => {})}
+        onExerciseChange={vi.fn()}
+        onComplete={onComplete}
+        onExit={onExit}
+      />
+    )
+
+    expect(
+      screen.getByText('Practice replay · your completed progress is kept')
+    ).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Start recall' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Finish practice' }))
+
+    expect(onExit).toHaveBeenCalledOnce()
+    expect(onComplete).not.toHaveBeenCalled()
+  })
 })

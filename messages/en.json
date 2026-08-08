@@ -637,6 +637,7 @@
     "label": "Lesson",
     "submitAnswer": "Submit Answer",
     "lessonDone": "Lesson Done",
+    "redoLesson": "Redo lesson",
     "score": "Score",
     "showNativeExplanation": "Show in",
     "hint": "Hint",

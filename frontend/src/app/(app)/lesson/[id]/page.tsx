@@ -30,6 +30,10 @@ import {
 import { shouldShowUnitReviewPrompt } from '@/lib/review-prompt-triggers'
 import { cn } from '@/lib/utils'
 import {
+  answerReplayExercise,
+  resetExercisesForReplay,
+} from '@/lib/lesson-replay'
+import {
   formatLanguageName,
   getTargetLanguageTextClass,
 } from '@/lib/target-languages'
@@ -126,6 +130,7 @@ export default function LessonPage() {
   const [answer, setAnswer] = useState('')
   const [evaluating, setEvaluating] = useState(false)
   const [completed, setCompleted] = useState(false)
+  const [redoMode, setRedoMode] = useState(false)
   const [dayComplete, setDayComplete] = useState(false)
   const [reviewPromptOpen, setReviewPromptOpen] = useState(false)
   const [progressDayAtStart, setProgressDayAtStart] = useState(-1)
@@ -178,8 +183,16 @@ export default function LessonPage() {
     try {
       const res = await apiFetch(`/api/lessons/${id}`)
       const data = await res.json()
+      const shouldRedo = Boolean(
+        data.lesson?.is_completed && data.lesson?.content?.learning_flow
+      )
       setLesson(data.lesson)
-      setExercises(data.exercises)
+      setExercises(
+        shouldRedo ? resetExercisesForReplay(data.exercises) : data.exercises
+      )
+      setRedoMode(shouldRedo)
+      setCurrentExercise(0)
+      setAnswer('')
       setNativeExplanationOpen(
         data.lesson?.cefr_level === 'A1' || data.lesson?.cefr_level === 'A2'
       )
@@ -318,10 +331,23 @@ export default function LessonPage() {
   }, [currentExercise, exercises])
 
   async function submitAnswer(overrideAnswer?: string) {
-    if (isReview) return
     const finalAnswer = overrideAnswer ?? answer
     if (!finalAnswer.trim()) return
     const exercise = exercises[currentExercise]
+    if (redoMode) {
+      setExercises((prev) => {
+        const copy = [...prev]
+        copy[currentExercise] = answerReplayExercise(
+          copy[currentExercise],
+          finalAnswer
+        )
+        return copy
+      })
+      if (overrideAnswer !== undefined) setAnswer(overrideAnswer)
+      setSubmitError(false)
+      return
+    }
+    if (isReview) return
     setEvaluating(true)
     try {
       const res = await apiFetch(
@@ -445,6 +471,17 @@ export default function LessonPage() {
     }
   }
 
+  function startRedoLesson() {
+    setExercises((prev) => resetExercisesForReplay(prev))
+    setCurrentExercise(0)
+    setAnswer('')
+    setSubmitError(false)
+    setDayComplete(false)
+    setReviewPromptOpen(false)
+    setRedoMode(true)
+    setCompleted(false)
+  }
+
   if (loading) {
     return <PageLoading label={t('loading')} />
   }
@@ -493,12 +530,22 @@ export default function LessonPage() {
                 </p>
               </div>
             )}
-            <button
-              onClick={() => router.push('/dashboard')}
-              className="bg-fl-accent text-fl-accent-fg hover:bg-fl-accent/90 mt-8 px-8 py-3 font-mono text-xs font-bold tracking-widest uppercase transition-colors"
-            >
-              {tCommon('backToDashboard')}
-            </button>
+            <div className="mt-8 flex flex-wrap justify-center gap-3">
+              {Boolean(lesson?.content?.learning_flow) && (
+                <button
+                  onClick={startRedoLesson}
+                  className="border-fl-border-2 text-fl-fg hover:bg-fl-surface-2 border px-8 py-3 font-mono text-xs font-bold tracking-widest uppercase transition-colors"
+                >
+                  {t('redoLesson')}
+                </button>
+              )}
+              <button
+                onClick={() => router.push('/dashboard')}
+                className="bg-fl-accent text-fl-accent-fg hover:bg-fl-accent/90 px-8 py-3 font-mono text-xs font-bold tracking-widest uppercase transition-colors"
+              >
+                {tCommon('backToDashboard')}
+              </button>
+            </div>
           </div>
         </div>
         <ReviewPrompt
@@ -554,14 +601,17 @@ export default function LessonPage() {
           answer={answer}
           evaluating={evaluating}
           completing={completingLesson}
-          isReview={isReview}
+          isReview={isReview && !redoMode}
+          isReplay={redoMode}
           submitError={submitError}
           onAnswerChange={setAnswer}
           onSubmitAnswer={submitAnswer}
           onExerciseChange={setCurrentExercise}
           onComplete={completeLessonHandler}
           onExit={() =>
-            isReview ? router.push('/plan') : setShowExitConfirm(true)
+            isReview || redoMode
+              ? router.push('/plan')
+              : setShowExitConfirm(true)
           }
         />
         <ConfirmDialog

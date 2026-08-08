@@ -637,6 +637,7 @@
     "label": "Lección",
     "submitAnswer": "Enviar respuesta",
     "lessonDone": "Lección completada",
+    "redoLesson": "Repetir lección",
     "score": "Puntuación",
     "showNativeExplanation": "Ver en",
     "hint": "Pista",
