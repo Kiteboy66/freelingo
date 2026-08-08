@@ -598,7 +598,16 @@ class LLMAdapter:
                     last_error = LLMUnavailableError(
                         f"{self.provider} is unreachable. Check that the service is running."
                     )
-                elif "rate" in error_msg.lower():
+                elif getattr(getattr(e, "response", None), "status_code", None) == 429 or any(
+                    marker in error_msg.lower()
+                    for marker in (
+                        "rate limit",
+                        "rate-limit",
+                        "ratelimit",
+                        "resource_exhausted",
+                        "too many requests",
+                    )
+                ):
                     last_error = LLMUnavailableError(
                         f"{self.provider} rate limit exceeded. Try again later."
                     )
@@ -716,9 +725,27 @@ class LLMAdapter:
         if reasoning_effort is not None:
             extra["reasoning_effort"] = reasoning_effort
 
+        request_messages = messages
+        if self.provider == "gemini" and not any(
+            message.get("role") in {"user", "assistant"} for message in messages
+        ):
+            # Gemini turns system messages into ``system_instruction`` and
+            # rejects a request with no conversational ``contents``. It may
+            # also retain only the last of multiple system messages. Several
+            # structured-generation callers intentionally provide only system
+            # instructions, so preserve all of them in one user turn.
+            request_messages = [
+                {
+                    "role": "user",
+                    "content": "\n\n".join(
+                        str(message.get("content", "")) for message in messages
+                    ),
+                },
+            ]
+
         response = await self.client.chat.completions.create(
             model=self.model,
-            messages=messages,
+            messages=request_messages,
             stream=stream,
             timeout=REQUEST_TIMEOUT,
             **extra,

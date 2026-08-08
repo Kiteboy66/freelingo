@@ -398,6 +398,44 @@ class TestChatNonStreaming:
             assert result == "Hello from OpenAI!"
 
     @pytest.mark.asyncio
+    async def test_gemini_system_only_chat_adds_user_turn(self, monkeypatch):
+        monkeypatch.setattr("app.core.config.settings.LLM_PROVIDER", "gemini")
+        monkeypatch.setattr("app.core.config.settings.GEMINI_API_KEY", "gemini-test")
+        monkeypatch.setattr(
+            "app.core.config.settings.GEMINI_MODEL", "gemini-3.5-flash-lite"
+        )
+
+        from app.services.llm_adapter import LLMAdapter
+
+        msg = MagicMock()
+        msg.content = '{"status":"ok"}'
+        response = MagicMock()
+        response.choices = [MagicMock()]
+        response.choices[0].message = msg
+
+        adapter = LLMAdapter()
+        system_messages = [
+            {"role": "system", "content": "Return JSON only."},
+            {"role": "system", "content": "Create the requested lesson."},
+        ]
+        with patch.object(
+            adapter.client.chat.completions,
+            "create",
+            new_callable=AsyncMock,
+            return_value=response,
+        ) as mock_create:
+            result = await adapter.chat(system_messages)
+
+        assert result == '{"status":"ok"}'
+        sent_messages = mock_create.call_args.kwargs["messages"]
+        assert sent_messages == [
+            {
+                "role": "user",
+                "content": "Return JSON only.\n\nCreate the requested lesson.",
+            }
+        ]
+
+    @pytest.mark.asyncio
     async def test_empty_response_raises(self, monkeypatch):
         _make_ollama_settings(monkeypatch)
 
