@@ -320,7 +320,7 @@ export function GuidedLessonView({
             {showChoices && !evaluated && !isReview && (
               <button
                 type="button"
-                onClick={onSubmitAnswer}
+                onClick={() => void onSubmitAnswer()}
                 disabled={!answer || evaluating}
                 className="bg-fl-accent text-fl-accent-fg mt-5 w-full px-5 py-3 font-mono text-xs font-bold tracking-widest uppercase disabled:opacity-40"
               >

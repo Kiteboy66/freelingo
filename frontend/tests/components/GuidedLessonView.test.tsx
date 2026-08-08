@@ -41,7 +41,7 @@ const exercise = {
   feedback: null,
 }
 
-function renderView() {
+function renderView(answer = '') {
   const onAnswerChange = vi.fn()
   const onSubmitAnswer = vi.fn(async () => {})
   render(
@@ -51,7 +51,7 @@ function renderView() {
       xhosaTitle="Incoko yakho yokuqala"
       exercises={[exercise]}
       currentExercise={0}
-      answer=""
+      answer={answer}
       evaluating={false}
       completing={false}
       isReview={false}
@@ -96,5 +96,20 @@ describe('GuidedLessonView', () => {
     )
     fireEvent.click(screen.getByRole('button', { name: 'Hello!' }))
     expect(onAnswerChange).toHaveBeenCalledWith('Hello!')
+  })
+
+  it('submits the selected answer without forwarding the click event', () => {
+    const { onSubmitAnswer } = renderView('Hello!')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Start recall' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'I tried · show choices' })
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Check answer' }))
+
+    expect(onSubmitAnswer).toHaveBeenCalledWith()
   })
 })
