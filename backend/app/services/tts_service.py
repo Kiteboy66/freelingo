@@ -1,3 +1,4 @@
+import asyncio
 import time
 
 import httpx
@@ -8,6 +9,8 @@ from app.core.app_logger import get_logger
 logger = get_logger(__name__)
 
 XHOSA_TTS_TIMEOUT_SECONDS = 300.0
+XHOSA_TTS_WAKE_RETRY_DELAYS_SECONDS = (1.0, 2.0, 4.0, 8.0, 12.0, 15.0, 15.0, 15.0)
+XHOSA_TTS_WAKE_STATUS_CODES = frozenset({502, 503, 504})
 
 
 class KokoroTTSService:
@@ -30,18 +33,35 @@ class KokoroTTSService:
         base_url = self.xhosa_base_url if use_xhosa and self.xhosa_base_url else self.base_url
         model = "UBC-NLP/Simba-TTS-xho" if use_xhosa else "kokoro"
         async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{base_url}/v1/audio/speech",
-                json={
-                    "model": model,
-                    "input": text,
-                    "voice": voice or self.voice,
-                    "response_format": "mp3",
-                },
-                # The first local isiXhosa request may need to download and
-                # initialise Simba TTS. Warm requests are much faster.
-                timeout=XHOSA_TTS_TIMEOUT_SECONDS if use_xhosa else 30.0,
-            )
+            request = {
+                "model": model,
+                "input": text,
+                "voice": voice or self.voice,
+                "response_format": "mp3",
+            }
+            retry_delays = XHOSA_TTS_WAKE_RETRY_DELAYS_SECONDS if use_xhosa else ()
+            for attempt in range(len(retry_delays) + 1):
+                try:
+                    response = await client.post(
+                        f"{base_url}/v1/audio/speech",
+                        json=request,
+                        # The first local isiXhosa request may need to wake the
+                        # Railway service, download the model, and initialise
+                        # Simba TTS. Warm requests are much faster.
+                        timeout=XHOSA_TTS_TIMEOUT_SECONDS if use_xhosa else 30.0,
+                    )
+                    if (
+                        use_xhosa
+                        and response.status_code in XHOSA_TTS_WAKE_STATUS_CODES
+                        and attempt < len(retry_delays)
+                    ):
+                        await asyncio.sleep(retry_delays[attempt])
+                        continue
+                    break
+                except httpx.ConnectError, httpx.ConnectTimeout:
+                    if attempt >= len(retry_delays):
+                        raise
+                    await asyncio.sleep(retry_delays[attempt])
             response.raise_for_status()
             return response.content
 

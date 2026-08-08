@@ -1172,8 +1172,11 @@
   },
   "audioPlayer": {
     "listen": "Luisteren",
+    "loading": "Stem laden…",
+    "retry": "Opnieuw proberen",
     "stop": "Stoppen",
     "ariaListen": "Luister naar uitspraak",
+    "ariaRetry": "Uitspraakaudio opnieuw proberen",
     "ariaStop": "Audio stoppen"
   },
   "languages": {

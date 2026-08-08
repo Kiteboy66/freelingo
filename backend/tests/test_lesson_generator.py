@@ -40,6 +40,36 @@ class TestGetValidGrammarSlugs:
 
 class TestGenerateLesson:
     @pytest.mark.asyncio
+    async def test_first_xhosa_listening_lesson_is_curated_and_english_first(self):
+        from app.services.lesson_generator import generate_lesson
+
+        with patch(
+            "app.services.lesson_generator.llm_adapter.structured_output",
+            AsyncMock(side_effect=AssertionError("curated lesson must not call the LLM")),
+        ):
+            result = await generate_lesson(
+                cefr_level="A1",
+                lesson_type="listening",
+                topic="Izandi nezicofayo - Isifundo 1",
+                week=1,
+                day=1,
+                unit_id="a1-unit-1",
+                grammar_points=["xh-vowels", "xh-clicks"],
+                vocabulary_set_ids=["izandi_xh_a1"],
+                target_language="xh-ZA",
+                native_language="en",
+            )
+
+        assert result.native_title == "Sounds and click consonants"
+        assert "Press Listen" in result.native_explanation["text"]
+        examples = result.native_explanation["examples"]
+        assert [example["sentence"] for example in examples] == ["cela", "qonda", "Xhosa"]
+        assert all(exercise.native_question for exercise in result.exercises)
+        assert result.exercises[-1].type == "pronunciation"
+        assert result.exercises[-1].correct == "qonda"
+        assert [item.word for item in result.vocabulary] == ["cela", "qonda", "Xhosa"]
+
+    @pytest.mark.asyncio
     async def test_generates_lesson_with_mocked_llm(self):
         from app.services.lesson_generator import generate_lesson
 

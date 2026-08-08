@@ -1172,8 +1172,11 @@
   },
   "audioPlayer": {
     "listen": "Ascultă",
+    "loading": "Se încarcă vocea…",
+    "retry": "Încearcă din nou",
     "stop": "Oprește",
     "ariaListen": "Ascultă pronunția",
+    "ariaRetry": "Reîncearcă sunetul pronunției",
     "ariaStop": "Oprește audio"
   },
   "languages": {

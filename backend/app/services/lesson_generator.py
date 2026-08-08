@@ -1,8 +1,11 @@
 import json
 import re
+from dataclasses import asdict
 from typing import Any
 
 from app.data.curriculum import get_curriculum
+from app.data.grammar import get_grammar_topic
+from app.data.vocabulary import get_vocabulary_set
 from app.schemas.lessons import (
     ExerciseContent,
     FillBlankEvaluation,
@@ -51,6 +54,147 @@ def get_valid_grammar_slugs(target_language: str = "en-GB") -> set[str]:
     return {slug for units in curriculum.values() for unit in units for slug in unit.grammar_points}
 
 
+def _curated_xhosa_click_lesson(
+    *,
+    cefr_level: str,
+    lesson_type: str,
+    unit_id: str,
+    native_language: str | None,
+) -> LessonContent | None:
+    """Return the guaranteed beginner-safe first isiXhosa listening lesson.
+
+    Click pronunciation is too important to leave to an ungrounded generated
+    lesson.  English-speaking beginners get a deterministic explanation with
+    one playable model for each of c, q, and x.
+    """
+    if (
+        cefr_level != "A1"
+        or lesson_type != "listening"
+        or unit_id != "a1-unit-1"
+        or (native_language or "en").split("-")[0] != "en"
+    ):
+        return None
+
+    return LessonContent(
+        lesson_type=lesson_type,
+        title="Izandi nezicofayo",
+        native_title="Sounds and click consonants",
+        cefr_level=cefr_level,
+        unit_id=unit_id,
+        explanation={
+            "text": (
+                "IsiXhosa sinoonobumba abathathu bezicofayo: c, q no-x. "
+                "Mamela igama ngalinye, uze uliphinde kancinci."
+            ),
+            "key_points": [
+                "c = isicofayo samazinyo",
+                "q = isicofayo esiqhumayo eluphahleni lomlomo",
+                "x = isicofayo esenziwa ecaleni kolwimi",
+            ],
+            "examples": [],
+        },
+        native_explanation={
+            "text": (
+                "isiXhosa has three click letters. Do not pronounce c, q, or x "
+                "as you would in English. Press Listen beside each word, copy the "
+                "sound slowly, and replay it as often as you need."
+            ),
+            "key_points": [
+                "c — dental click: put your tongue just behind your top front teeth and pull it away, like a single 'tsk'.",
+                "q — alveolar click: press the tip of your tongue against the roof of your mouth and release it with a firm pop.",
+                "x — lateral click: press one side of your tongue against your side teeth and release it, rather like a horse-clop sound.",
+                "The vowels stay clear: a as in father, e as in bed, i as in machine, o as in more, and u as in rule.",
+            ],
+            "examples": [
+                {
+                    "sentence": "cela",
+                    "note": "c — dental click · means “ask/request” · /ǀɛːla/",
+                },
+                {
+                    "sentence": "qonda",
+                    "note": "q — firm central pop · means “understand” · /ǃɔnda/",
+                },
+                {
+                    "sentence": "Xhosa",
+                    "note": "x — side click · the name Xhosa · /ǁʰɔːsa/",
+                },
+            ],
+            "common_traps": [
+                {
+                    "mistake": "Reading Xhosa as 'ex-oh-sa' or 'kuh-oh-sa'.",
+                    "fix": "Start with one side click for x, then continue directly into 'o-sa'.",
+                }
+            ],
+            "mini_glossary": [
+                {"term": "cela", "meaning": "ask / request"},
+                {"term": "qonda", "meaning": "understand"},
+                {"term": "Xhosa", "meaning": "Xhosa language or people"},
+            ],
+        },
+        exercises=[
+            ExerciseContent(
+                type="multiple_choice",
+                question="Leliphi igama eliqala ngesicofayo samazinyo u-c?",
+                native_question="Which word begins with the dental c click?",
+                options=["cela", "qonda", "Xhosa"],
+                correct="cela",
+                explanation="U-c ku-cela sisicofayo samazinyo.",
+                native_explanation="Correct: cela begins with the dental c click.",
+                native_hint="Think of the light 'tsk' sound made just behind the front teeth.",
+            ),
+            ExerciseContent(
+                type="multiple_choice",
+                question="Leliphi igama eliqala ngesicofayo esenziwa ecaleni kolwimi u-x?",
+                native_question="Which word begins with the side, or lateral, x click?",
+                options=["qonda", "Xhosa", "cela"],
+                correct="Xhosa",
+                explanation="U-x ku-Xhosa sisicofayo esenziwa ecaleni kolwimi.",
+                native_explanation="Correct: Xhosa begins with the lateral x click.",
+                native_hint="Listen for the click released at the side of the tongue.",
+            ),
+            ExerciseContent(
+                type="pronunciation",
+                question="Mamela, uze uthethe: qonda.",
+                native_question=(
+                    "Press Listen, copy the firm q click in qonda, then record yourself saying the word."
+                ),
+                options=["Begin with one firm tongue pop, then say 'on-da'."],
+                correct="qonda",
+                explanation="U-q ku-qonda sisicofayo esiqhumayo.",
+                native_explanation="qonda means 'understand' and begins with the firm q click.",
+                native_hint="Make the click first, then move straight into 'on-da'.",
+            ),
+        ],
+        vocabulary=[
+            {
+                "word": "cela",
+                "definition": "ukucela into",
+                "translation": "ask / request",
+                "example": "Ndicela amanzi.",
+                "example_translation": "Water, please.",
+                "reading": "/ǀɛːla/",
+            },
+            {
+                "word": "qonda",
+                "definition": "ukuva intsingiselo",
+                "translation": "understand",
+                "example": "Andiqondi.",
+                "example_translation": "I do not understand.",
+                "reading": "/ǃɔnda/",
+            },
+            {
+                "word": "Xhosa",
+                "definition": "ulwimi nabantu bamaXhosa",
+                "translation": "Xhosa language or people",
+                "example": "Ndifunda isiXhosa.",
+                "example_translation": "I am learning isiXhosa.",
+                "reading": "/ǁʰɔːsa/",
+            },
+        ],
+        grammar_refs=["xh-vowels", "xh-clicks"],
+    )
+
+
 async def generate_lesson(
     cefr_level: str,
     lesson_type: str,
@@ -63,6 +207,16 @@ async def generate_lesson(
     target_language: str = "en-GB",
     native_language: str | None = None,
 ) -> LessonContent:
+    if target_language == "xh-ZA":
+        curated_lesson = _curated_xhosa_click_lesson(
+            cefr_level=cefr_level,
+            lesson_type=lesson_type,
+            unit_id=unit_id,
+            native_language=native_language,
+        )
+        if curated_lesson is not None:
+            return curated_lesson
+
     gp_str = ", ".join(grammar_points) if grammar_points else "none specified"
     vs_str = ", ".join(vocabulary_set_ids) if vocabulary_set_ids else "general"
     target_language_name = get_language_name(target_language)
@@ -70,6 +224,21 @@ async def generate_lesson(
     language_prompt_overlay = get_language_prompt_overlay(target_language)
     valid_slugs = get_valid_grammar_slugs(target_language)
     valid_slugs_str = ", ".join(sorted(valid_slugs))
+    curriculum_source = json.dumps(
+        {
+            "grammar": [
+                asdict(topic_data)
+                for slug in (grammar_points or [])
+                if (topic_data := get_grammar_topic(slug, target_language)) is not None
+            ],
+            "vocabulary": [
+                asdict(vocabulary_data)
+                for set_id in (vocabulary_set_ids or [])
+                if (vocabulary_data := get_vocabulary_set(set_id, target_language)) is not None
+            ],
+        },
+        ensure_ascii=False,
+    )
     prompt = build_lesson_generation_prompt(
         cefr_level=cefr_level,
         target_language_name=target_language_name,
@@ -82,6 +251,7 @@ async def generate_lesson(
         week=week,
         day=day,
         valid_slugs=valid_slugs_str,
+        curriculum_source=curriculum_source,
         language_prompt_overlay=language_prompt_overlay,
     )
 

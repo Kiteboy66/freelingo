@@ -9,6 +9,7 @@ from pydantic import BaseModel, field_serializer, model_validator
 class ExerciseContent(BaseModel):
     type: str
     question: str
+    native_question: str | None = None
     options: list[str] | None = None
     correct: str
     explanation: str | None = None
@@ -50,6 +51,7 @@ class LessonVocabularyItem(BaseModel):
 class LessonContent(BaseModel):
     lesson_type: str
     title: str
+    native_title: str | None = None
     cefr_level: str
     explanation: dict
     native_explanation: dict | None = None
@@ -83,6 +85,7 @@ class ExerciseResponse(BaseModel):
     lesson_id: int
     exercise_type: str
     question: str
+    native_question: str | None = None
     options: list | None = None
     correct_answer: str
     user_answer: str | None = None

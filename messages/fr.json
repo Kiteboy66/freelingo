@@ -1172,8 +1172,11 @@
   },
   "audioPlayer": {
     "listen": "Écouter",
+    "loading": "Chargement de la voix…",
+    "retry": "Réessayer",
     "stop": "Arrêter",
     "ariaListen": "Écouter la prononciation",
+    "ariaRetry": "Réessayer l'audio de prononciation",
     "ariaStop": "Arrêter l'audio"
   },
   "languages": {

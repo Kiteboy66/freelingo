@@ -401,8 +401,7 @@ describe('AudioPlayer', () => {
 
   // ───────────── ERROR: HTTP ─────────────
 
-  it('shows error on non-ok HTTP response then recovers after 2s', async () => {
-    vi.useFakeTimers()
+  it('keeps a useful retry state after a non-ok HTTP response', async () => {
     fetchMock.mockResolvedValueOnce({ ok: false, status: 500 })
 
     render(<AudioPlayer text="Hello" />)
@@ -414,17 +413,11 @@ describe('AudioPlayer', () => {
     expect(screen.getByText(ERROR)).toBeDefined()
     const c = screen.getByRole('button').className.split(/\s+/).filter(Boolean)
     expect(c).toContain('text-fl-error-fg')
-
-    act(() => {
-      vi.advanceTimersByTime(2000)
-    })
-
-    expect(screen.getByText(PLAY)).toBeDefined()
-    vi.useRealTimers()
+    expect(screen.getByText('retry')).toBeDefined()
+    expect(screen.getByLabelText('ariaRetry')).toBeDefined()
   })
 
-  it('shows error on network failure then recovers after 2s', async () => {
-    vi.useFakeTimers()
+  it('keeps a useful retry state after a network failure', async () => {
     fetchMock.mockRejectedValueOnce(new Error('Network error'))
 
     render(<AudioPlayer text="Hello" />)
@@ -436,19 +429,12 @@ describe('AudioPlayer', () => {
     expect(screen.getByText(ERROR)).toBeDefined()
     const c = screen.getByRole('button').className.split(/\s+/).filter(Boolean)
     expect(c).toContain('text-fl-error-fg')
-
-    act(() => {
-      vi.advanceTimersByTime(2000)
-    })
-
-    expect(screen.getByText(PLAY)).toBeDefined()
-    vi.useRealTimers()
+    expect(screen.getByText('retry')).toBeDefined()
   })
 
   // ───────────── ERROR: AUDIO PLAYBACK ─────────────
 
-  it('shows error when audio onerror fires then recovers after 2s', async () => {
-    // Phase 1: real timers for click→fetch→play transition
+  it('shows a persistent retry state when audio playback fails', async () => {
     fetchMock.mockResolvedValueOnce(makeOkResponse())
 
     render(<AudioPlayer text="Hello" />)
@@ -461,21 +447,12 @@ describe('AudioPlayer', () => {
       expect(screen.getByText(PAUSE)).toBeDefined()
     })
 
-    // Phase 2: fake timers for onerror + 2s recovery timeout
-    vi.useFakeTimers()
-
     act(() => {
       currentAudioMock!.onerror!()
     })
 
     expect(screen.getByText(ERROR)).toBeDefined()
-
-    act(() => {
-      vi.advanceTimersByTime(2000)
-    })
-
-    expect(screen.getByText(PLAY)).toBeDefined()
-    vi.useRealTimers()
+    expect(screen.getByText('retry')).toBeDefined()
   })
 
   // ───────────── UNMOUNT ─────────────
@@ -553,7 +530,7 @@ describe('AudioPlayer', () => {
       fireEvent.click(buttons[0])
     })
     await waitFor(() => {
-      expect(buttons[0].textContent).toBe(PAUSE)
+      expect(buttons[0].textContent).toBe(`${PAUSE}stop`)
     })
 
     // Start B
@@ -561,7 +538,7 @@ describe('AudioPlayer', () => {
       fireEvent.click(buttons[1])
     })
     await waitFor(() => {
-      expect(buttons[1].textContent).toBe(PAUSE)
+      expect(buttons[1].textContent).toBe(`${PAUSE}stop`)
     })
 
     // Stop A — B should keep playing
@@ -574,8 +551,8 @@ describe('AudioPlayer', () => {
     // A's pause was called on the previous Audio instance. We can't assert
     // on currentAudioMock.pause because it got overwritten when B started.
     // Instead verify via UI state.
-    expect(buttons[0].textContent).toBe(PLAY)
-    expect(buttons[1].textContent).toBe(PAUSE)
+    expect(buttons[0].textContent).toBe(`${PLAY}listen`)
+    expect(buttons[1].textContent).toBe(`${PAUSE}stop`)
   })
 
   it('two instances send independent requests with correct text', async () => {
@@ -644,9 +621,7 @@ describe('AudioPlayer', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
-  it('can re-play after error recovery', async () => {
-    vi.useFakeTimers()
-
+  it('can retry directly from the error state', async () => {
     fetchMock.mockRejectedValueOnce(new Error('fail'))
 
     render(<AudioPlayer text="Hello" />)
@@ -656,13 +631,6 @@ describe('AudioPlayer', () => {
       fireEvent.click(btn)
     })
     expect(screen.getByText(ERROR)).toBeDefined()
-
-    act(() => {
-      vi.advanceTimersByTime(2000)
-    })
-    expect(screen.getByText(PLAY)).toBeDefined()
-
-    vi.useRealTimers()
     fetchMock.mockResolvedValueOnce(makeOkResponse())
 
     await act(async () => {

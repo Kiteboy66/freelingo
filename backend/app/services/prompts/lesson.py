@@ -16,6 +16,15 @@ Parameters:
 
 {language_prompt_overlay}
 
+AUTHORITATIVE CURRICULUM SOURCE:
+<<<CURRICULUM_SOURCE
+{curriculum_source}
+CURRICULUM_SOURCE
+
+Use this source as the ground truth. Reuse its target-language examples and
+translations. Do not replace the core examples with unrelated phrases. When a
+pronunciation topic lists several sounds, teach and test every listed sound.
+
 STRICT CONSTRAINTS:
 1. Every grammar structure used must be at or below {cefr_level}.
 2. If grammar_points is non-empty, at least 70% of exercises must target one of those points.
@@ -38,6 +47,9 @@ STRICT CONSTRAINTS:
    Never write "native_explanation", "native_hint", vocabulary "translation",
    "example_translation", or "note" in {target_language_name} unless
    {native_language_name} is also {target_language_name}.
+10. For A1 and A2, write a plain, beginner-friendly native_title and native_question
+    for every exercise so the learner always understands what to do before seeing
+    the target-language practice.
 
 ━━━ CRITICAL RULE FOR fill_blank EXERCISES ━━━
 The "question" field MUST contain the gapped sentence with ___ marking the blank.
@@ -64,6 +76,7 @@ For pronunciation exercises use this exact structure:
 {{
   "type": "pronunciation",
   "question": "A short instruction in {target_language_name} (e.g. 'Repeat the following phrase:')",
+  "native_question": "The same short instruction in {native_language_name}; null if native_language_name is none",
   "options": ["Hint in {target_language_name} about the specific sound or pattern to focus on"],
   "correct": "The exact {target_language_name} phrase the student must pronounce.",
   "explanation": "What phonetic aspect this practices (describe in {target_language_name})."
@@ -90,6 +103,7 @@ Return a JSON object using this exact schema:
 {{
   "lesson_type": "{lesson_type}",
   "title": "[lesson title in {target_language_name}]",
+  "native_title": "[clear lesson title in {native_language_name}; null if native_language_name is none]",
   "cefr_level": "{cefr_level}",
   "unit_id": "{unit_id}",
   "explanation": {{
@@ -122,6 +136,7 @@ Return a JSON object using this exact schema:
     {{
       "type": "multiple_choice",
       "question": "[sentence in {target_language_name} with a gap, or a direct question]",
+      "native_question": "[the task in {native_language_name}; null if native_language_name is none]",
       "options": ["[option 1]", "[option 2]", "[option 3]", "[option 4]"],
       "correct": "[the one correct option, copied exactly as written above]",
       "explanation": "[why this is correct, in {target_language_name}]",
@@ -131,6 +146,7 @@ Return a JSON object using this exact schema:
     {{
       "type": "fill_blank",
       "question": "[sentence in {target_language_name} with ___ marking the blank] [hint in parentheses]",
+      "native_question": "[the task in {native_language_name}; null if native_language_name is none]",
       "options": null,
       "correct": "[the word or phrase that fills the blank]",
       "explanation": "[grammar rule behind the answer, in {target_language_name}]",
@@ -140,6 +156,7 @@ Return a JSON object using this exact schema:
     {{
       "type": "free_write",
       "question": "[writing prompt in {target_language_name} with a specific task and requirements]",
+      "native_question": "[the task in {native_language_name}; null if native_language_name is none]",
       "options": [
         "[guideline or constraint for the student]",
         "[another guideline]"
@@ -165,7 +182,9 @@ Return a JSON object using this exact schema:
 }}
 
 IMPORTANT — all content (explanations, questions, options, correct answers, vocabulary word/definition/example)
-must be entirely in {target_language_name}, EXCEPT for "native_explanation", "native_hint", and vocabulary "translation", "example_translation", and "note" which must be in {native_language_name} (or null if native_language_name is "none").
+must be entirely in {target_language_name}, EXCEPT for "native_title", "native_question",
+"native_explanation", "native_hint", and vocabulary "translation", "example_translation", and
+"note" which must be in {native_language_name} (or null if native_language_name is "none").
 Only this meta-prompt is in English.
 
 Before returning, verify:
@@ -177,6 +196,7 @@ Before returning, verify:
 - If native_language_name is not "none", native_explanation is populated and all native fields are in {native_language_name}.
 - If native_language_name is not "none", every exercise has native_explanation in {native_language_name}.
 - If native_language_name is not "none", every exercise has native_hint in {native_language_name}.
+- If native_language_name is not "none", native_title and every native_question are populated in {native_language_name}.
 - No native_hint reveals or literally includes the correct answer.
 """
 
@@ -261,6 +281,7 @@ Return exactly one replacement exercise using this schema:
 {{
   "type": "{exercise_type}",
   "question": "...",
+  "native_question": "... or null",
   "options": {options_schema},
   "correct": "...",
   "explanation": "...",
@@ -271,7 +292,7 @@ Return exactly one replacement exercise using this schema:
 Rules:
 - Keep the same exercise type: {exercise_type}.
 - All student-visible target-language content must be in {target_language_name}.
-- If native_language_name is not "none", native_explanation and native_hint must be in {native_language_name}; otherwise set them to null.
+- If native_language_name is not "none", native_question, native_explanation, and native_hint must be in {native_language_name}; otherwise set them to null.
 - For multiple_choice: include exactly 4 plain answer options, with no letter or number prefixes. The correct answer must be copied exactly from one option.
 - For fill_blank: question must contain ___ marking the blank.
 - For free_write: options may contain 2-4 short grading criteria.
@@ -370,6 +391,7 @@ def build_lesson_generation_prompt(
     week: int,
     day: int,
     valid_slugs: str,
+    curriculum_source: str = "{}",
     language_prompt_overlay: str = "",
     native_language_name: str = "none",
 ) -> str:
@@ -385,6 +407,7 @@ def build_lesson_generation_prompt(
         week=week,
         day=day,
         valid_slugs=valid_slugs,
+        curriculum_source=curriculum_source,
         language_prompt_overlay=language_prompt_overlay,
     )
 

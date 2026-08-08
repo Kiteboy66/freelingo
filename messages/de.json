@@ -1172,8 +1172,11 @@
   },
   "audioPlayer": {
     "listen": "Anhören",
+    "loading": "Stimme wird geladen…",
+    "retry": "Erneut versuchen",
     "stop": "Stopp",
     "ariaListen": "Aussprache anhören",
+    "ariaRetry": "Aussprache erneut laden",
     "ariaStop": "Audio stoppen"
   },
   "languages": {

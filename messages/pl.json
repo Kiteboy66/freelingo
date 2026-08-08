@@ -1172,8 +1172,11 @@
   },
   "audioPlayer": {
     "listen": "Słuchaj",
+    "loading": "Ładowanie głosu…",
+    "retry": "Spróbuj ponownie",
     "stop": "Zatrzymaj",
     "ariaListen": "Posłuchaj wymowy",
+    "ariaRetry": "Ponów dźwięk wymowy",
     "ariaStop": "Zatrzymaj audio"
   },
   "languages": {

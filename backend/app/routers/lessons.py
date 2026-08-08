@@ -237,15 +237,18 @@ async def get_lesson(
                 q, exp = exp, q
         native_exp = None
         native_hint = None
+        native_question = None
         if index < len(content_exercises) and isinstance(content_exercises[index], dict):
             native_exp = content_exercises[index].get("native_explanation")
             native_hint = content_exercises[index].get("native_hint")
+            native_question = content_exercises[index].get("native_question")
         fixed.append(
             ExerciseResponse(
                 id=ex.id,
                 lesson_id=ex.lesson_id,
                 exercise_type=ex.exercise_type,
                 question=q,
+                native_question=(native_question if isinstance(native_question, str) else None),
                 options=ex.options,
                 correct_answer=ex.correct_answer,
                 user_answer=ex.user_answer,
@@ -589,6 +592,7 @@ async def regenerate_invalid_exercise(
         lesson_id=exercise.lesson_id,
         exercise_type=exercise.exercise_type,
         question=exercise.question,
+        native_question=regenerated.native_question,
         options=exercise.options,
         correct_answer=exercise.correct_answer,
         user_answer=exercise.user_answer,

@@ -1,11 +1,13 @@
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 
 from app.core.config import Settings, settings
 from app.main import app
 from app.services.stt_service import GroqSTTService
+from app.services.tts_service import KokoroTTSService
 
 
 def _settings(database_url: str) -> Settings:
@@ -17,7 +19,7 @@ def _settings(database_url: str) -> Settings:
 
 def test_neon_database_url_is_normalized_for_asyncpg() -> None:
     settings = _settings(
-        "postgresql://user:pass@example.neon.tech/db" "?sslmode=require&channel_binding=require"
+        "postgresql://user:pass@example.neon.tech/db?sslmode=require&channel_binding=require"
     )
 
     assert settings.DATABASE_URL == (
@@ -37,6 +39,34 @@ def test_groq_stt_uses_openai_compatible_endpoint() -> None:
     assert service.model == "whisper-large-v3"
     assert service.provider_name == "groq"
     assert str(service._client.base_url) == "https://api.groq.com/openai/v1/"
+
+
+@pytest.mark.asyncio
+async def test_xhosa_tts_retries_while_railway_service_wakes() -> None:
+    request = httpx.Request("POST", "http://xhosa-speech:9100/v1/audio/speech")
+    response = SimpleNamespace(content=b"mp3-audio", status_code=200, raise_for_status=MagicMock())
+    client = AsyncMock()
+    client.post = AsyncMock(
+        side_effect=[httpx.ConnectError("still waking", request=request), response]
+    )
+    client_context = MagicMock()
+    client_context.__aenter__ = AsyncMock(return_value=client)
+    client_context.__aexit__ = AsyncMock(return_value=None)
+
+    service = KokoroTTSService(
+        "http://kokoro:8880",
+        "af_heart",
+        "http://xhosa-speech:9100",
+    )
+    with (
+        patch("app.services.tts_service.httpx.AsyncClient", return_value=client_context),
+        patch("app.services.tts_service.asyncio.sleep", new_callable=AsyncMock) as sleep,
+    ):
+        audio = await service.synthesize("Molo", language="xh-ZA")
+
+    assert audio == b"mp3-audio"
+    assert client.post.await_count == 2
+    sleep.assert_awaited_once_with(1.0)
 
 
 @pytest.mark.asyncio

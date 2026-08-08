@@ -1172,8 +1172,11 @@
   },
   "audioPlayer": {
     "listen": "Ouvir",
+    "loading": "A carregar voz…",
+    "retry": "Tentar novamente",
     "stop": "Parar",
     "ariaListen": "Ouvir pronúncia",
+    "ariaRetry": "Tentar novamente o áudio da pronúncia",
     "ariaStop": "Parar áudio"
   },
   "languages": {

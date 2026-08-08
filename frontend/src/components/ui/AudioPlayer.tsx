@@ -153,19 +153,17 @@ export function AudioPlayer({
         URL.revokeObjectURL(url)
         audioRef.current = null
         setState('error')
-        setTimeout(() => setState('idle'), 2000)
       }
     } catch {
       clearTimeout(timeoutId)
       setState('error')
-      setTimeout(() => setState('idle'), 2000)
     }
   }
 
   const sizeClass =
     size === 'sm' ? 'px-2 py-1 text-fl-hint' : 'px-3 py-2 text-xs'
 
-  const label =
+  const icon =
     state === 'loading'
       ? '...'
       : state === 'playing'
@@ -173,6 +171,15 @@ export function AudioPlayer({
         : state === 'error'
           ? '✕'
           : '▶'
+
+  const textLabel =
+    state === 'loading'
+      ? t('loading')
+      : state === 'playing'
+        ? t('stop')
+        : state === 'error'
+          ? t('retry')
+          : t('listen')
 
   const colorClass =
     state === 'playing'
@@ -186,11 +193,18 @@ export function AudioPlayer({
   return (
     <button
       onClick={handleClick}
-      title={state === 'playing' ? t('stop') : t('listen')}
-      aria-label={state === 'playing' ? t('ariaStop') : t('ariaListen')}
-      className={`border font-mono tracking-widest uppercase transition-colors ${colorClass} ${sizeClass} ${className}`}
+      title={textLabel}
+      aria-label={
+        state === 'playing'
+          ? t('ariaStop')
+          : state === 'error'
+            ? t('ariaRetry')
+            : t('ariaListen')
+      }
+      className={`inline-flex items-center gap-2 border font-mono tracking-widest uppercase transition-colors ${colorClass} ${sizeClass} ${className}`}
     >
-      {label}
+      <span aria-hidden="true">{icon}</span>
+      <span>{textLabel}</span>
     </button>
   )
 }

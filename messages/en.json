@@ -1172,8 +1172,11 @@
   },
   "audioPlayer": {
     "listen": "Listen",
+    "loading": "Loading voice…",
+    "retry": "Try again",
     "stop": "Stop",
     "ariaListen": "Listen to pronunciation",
+    "ariaRetry": "Retry pronunciation audio",
     "ariaStop": "Stop audio"
   },
   "languages": {

@@ -3,6 +3,7 @@ import os
 import time
 import uuid
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import FileResponse, Response
 
@@ -62,7 +63,19 @@ async def text_to_speech(
         with open(cache_path, "rb") as audio_file:  # noqa: PTH123
             audio = audio_file.read()
     else:
-        audio = await tts_service.synthesize(body.text, voice, body.language)
+        try:
+            audio = await tts_service.synthesize(body.text, voice, body.language)
+        except httpx.HTTPError as exc:
+            logger.warning(
+                "tts_unavailable",
+                trace=trace_id,
+                provider=type(tts_service).__name__,
+                error_type=type(exc).__name__,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="The pronunciation voice is still starting. Please try again.",
+            ) from exc
         if cache_path and audio:
             os.makedirs(os.path.dirname(cache_path), exist_ok=True)
             tmp_path = f"{cache_path}.{uuid.uuid4().hex}.tmp"
@@ -114,9 +127,7 @@ async def voice_preview(
         )
 
     if voice not in _OPENAI_VOICES:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid voice name"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid voice name")
 
     tts_service = getattr(request.app.state, "tts_service", None)
     if tts_service is None:
