@@ -3,7 +3,29 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from app.schemas.lessons import ExerciseContent, LessonContent
+from app.schemas.study_plan import GenerateStudyPlanRequest
 from tests.conftest import deactivate_active_plans, make_study_plan
+
+
+@pytest.mark.asyncio
+async def test_xhosa_two_week_plan_is_conversation_first():
+    from app.services.study_plan_generator import generate_study_plan
+
+    result = await generate_study_plan(
+        GenerateStudyPlanRequest(
+            cefr_level="A1",
+            duration_weeks=2,
+            days_per_week=7,
+        ),
+        target_language="xh-ZA",
+    )
+
+    days = [day for week in result.weekly_plan for day in week.days]
+    assert result.title == "Your 14-day isiXhosa conversation sprint"
+    assert len(days) == 14
+    assert days[0].title == "Your first isiXhosa conversation"
+    assert days[0].estimated_minutes == 10
+    assert days[-1].title == "Your two-minute conversation"
 
 
 @pytest.mark.asyncio

@@ -40,7 +40,7 @@ class TestGetValidGrammarSlugs:
 
 class TestGenerateLesson:
     @pytest.mark.asyncio
-    async def test_first_xhosa_listening_lesson_is_curated_and_english_first(self):
+    async def test_first_xhosa_lesson_is_a_guided_conversation(self):
         from app.services.lesson_generator import generate_lesson
 
         with patch(
@@ -60,14 +60,49 @@ class TestGenerateLesson:
                 native_language="en",
             )
 
-        assert result.native_title == "Sounds and click consonants"
-        assert "Press Listen" in result.native_explanation["text"]
-        examples = result.native_explanation["examples"]
-        assert [example["sentence"] for example in examples] == ["cela", "qonda", "Xhosa"]
+        assert result.native_title == "Your first isiXhosa conversation"
+        assert result.learning_flow["goal"] == (
+            "Greet one person, ask how they are, and answer politely."
+        )
+        assert [phrase["text"] for phrase in result.learning_flow["phrases"]] == [
+            "Molo!",
+            "Unjani?",
+            "Ndiphilile, enkosi.",
+        ]
         assert all(exercise.native_question for exercise in result.exercises)
-        assert result.exercises[-1].type == "pronunciation"
-        assert result.exercises[-1].correct == "qonda"
-        assert [item.word for item in result.vocabulary] == ["cela", "qonda", "Xhosa"]
+        assert all(exercise.type == "multiple_choice" for exercise in result.exercises)
+        assert result.exercises[-1].correct == "Ndiphilile, enkosi."
+        assert [item.word for item in result.vocabulary] == [
+            "Molo!",
+            "Unjani?",
+            "Ndiphilile, enkosi.",
+        ]
+
+    @pytest.mark.asyncio
+    async def test_all_fourteen_xhosa_days_are_curated_without_llm(self):
+        from app.services.lesson_generator import generate_lesson
+
+        with patch(
+            "app.services.lesson_generator.llm_adapter.structured_output",
+            AsyncMock(side_effect=AssertionError("curated lessons must not call the LLM")),
+        ):
+            lessons = [
+                await generate_lesson(
+                    cefr_level="A1",
+                    lesson_type="listening",
+                    topic="ignored",
+                    week=((absolute_day - 1) // 7) + 1,
+                    day=((absolute_day - 1) % 7) + 1,
+                    target_language="xh-ZA",
+                    native_language="en",
+                )
+                for absolute_day in range(1, 15)
+            ]
+
+        assert len({lesson.native_title for lesson in lessons}) == 14
+        assert all(len(lesson.exercises) == 3 for lesson in lessons)
+        assert all(len(lesson.learning_flow["phrases"]) == 3 for lesson in lessons)
+        assert lessons[-1].native_title == "Your two-minute conversation"
 
     @pytest.mark.asyncio
     async def test_generates_lesson_with_mocked_llm(self):

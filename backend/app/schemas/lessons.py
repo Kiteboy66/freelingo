@@ -59,6 +59,7 @@ class LessonContent(BaseModel):
     vocabulary: list[LessonVocabularyItem] | None = None
     grammar_refs: list[str] = []
     unit_id: str | None = None
+    learning_flow: dict | None = None
 
 
 class LessonResponse(BaseModel):

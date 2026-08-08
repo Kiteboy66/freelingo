@@ -20,6 +20,10 @@ import { useFreemiumStore } from '@/store/freemium'
 import { useConfigStore } from '@/store/config'
 import { TargetLanguageText } from '@/components/TargetLanguageText'
 import {
+  GuidedLessonView,
+  type GuidedLearningFlow,
+} from '@/components/lessons/GuidedLessonView'
+import {
   ReviewPrompt,
   getReviewPromptDismissal,
 } from '@/components/reviews/ReviewPrompt'
@@ -530,6 +534,48 @@ export default function LessonPage() {
       : targetLanguageCode === 'xh-ZA' && lessonUnitId
         ? XHOSA_A1_UNIT_TITLES[lessonUnitId]
         : null
+  const guidedFlow = lesson?.content?.learning_flow as
+    | GuidedLearningFlow
+    | undefined
+
+  if (guidedFlow && lesson && nativeTitle) {
+    return (
+      <>
+        <GuidedLessonView
+          flow={guidedFlow}
+          nativeTitle={nativeTitle}
+          xhosaTitle={
+            typeof lesson.content.title === 'string'
+              ? lesson.content.title
+              : lesson.title
+          }
+          exercises={exercises}
+          currentExercise={currentExercise}
+          answer={answer}
+          evaluating={evaluating}
+          completing={completingLesson}
+          isReview={isReview}
+          submitError={submitError}
+          onAnswerChange={setAnswer}
+          onSubmitAnswer={submitAnswer}
+          onExerciseChange={setCurrentExercise}
+          onComplete={completeLessonHandler}
+          onExit={() =>
+            isReview ? router.push('/plan') : setShowExitConfirm(true)
+          }
+        />
+        <ConfirmDialog
+          open={showExitConfirm}
+          title={t('exitConfirmTitle')}
+          message={t('exitConfirmMessage')}
+          confirmLabel={t('exit')}
+          danger
+          onConfirm={() => router.push('/dashboard')}
+          onCancel={() => setShowExitConfirm(false)}
+        />
+      </>
+    )
+  }
 
   return (
     <>

@@ -6,6 +6,7 @@ from typing import Any
 from app.data.curriculum import get_curriculum
 from app.data.grammar import get_grammar_topic
 from app.data.vocabulary import get_vocabulary_set
+from app.data.xh.guided_course import get_guided_xhosa_a1_day
 from app.schemas.lessons import (
     ExerciseContent,
     FillBlankEvaluation,
@@ -54,144 +55,98 @@ def get_valid_grammar_slugs(target_language: str = "en-GB") -> set[str]:
     return {slug for units in curriculum.values() for unit in units for slug in unit.grammar_points}
 
 
-def _curated_xhosa_click_lesson(
+def _curated_xhosa_guided_lesson(
     *,
     cefr_level: str,
-    lesson_type: str,
-    unit_id: str,
+    week: int,
+    day: int,
     native_language: str | None,
 ) -> LessonContent | None:
-    """Return the guaranteed beginner-safe first isiXhosa listening lesson.
-
-    Click pronunciation is too important to leave to an ungrounded generated
-    lesson.  English-speaking beginners get a deterministic explanation with
-    one playable model for each of c, q, and x.
-    """
-    if (
-        cefr_level != "A1"
-        or lesson_type != "listening"
-        or unit_id != "a1-unit-1"
-        or (native_language or "en").split("-")[0] != "en"
-    ):
+    """Return one deterministic, conversation-first isiXhosa sprint lesson."""
+    if cefr_level != "A1" or (native_language or "en").split("-")[0] != "en":
         return None
 
-    return LessonContent(
-        lesson_type=lesson_type,
-        title="Izandi nezicofayo",
-        native_title="Sounds and click consonants",
-        cefr_level=cefr_level,
-        unit_id=unit_id,
-        explanation={
-            "text": (
-                "IsiXhosa sinoonobumba abathathu bezicofayo: c, q no-x. "
-                "Mamela igama ngalinye, uze uliphinde kancinci."
+    guided = get_guided_xhosa_a1_day(week, day)
+    if guided is None:
+        return None
+
+    translations = [phrase.translation for phrase in guided.phrases]
+    target_phrases = [phrase.text for phrase in guided.phrases]
+    exercises = [
+        ExerciseContent(
+            type="multiple_choice",
+            question=f'Kuthetha ukuthini: "{guided.phrases[0].text}"?',
+            native_question=f'What does "{guided.phrases[0].text}" mean?',
+            options=translations,
+            correct=guided.phrases[0].translation,
+            explanation=f"“{guided.phrases[0].text}” uthetha “{guided.phrases[0].translation}”.",
+            native_explanation=(
+                f"Correct: “{guided.phrases[0].text}” means “{guided.phrases[0].translation}”"
             ),
-            "key_points": [
-                "c = isicofayo samazinyo",
-                "q = isicofayo esiqhumayo eluphahleni lomlomo",
-                "x = isicofayo esenziwa ecaleni kolwimi",
-            ],
+            native_hint="Say the phrase aloud once, then recall the situation where you used it.",
+        ),
+        ExerciseContent(
+            type="multiple_choice",
+            question=f'Uthi njani: "{guided.phrases[1].translation}"?',
+            native_question=f"How do you say “{guided.phrases[1].translation}” in isiXhosa?",
+            options=target_phrases,
+            correct=guided.phrases[1].text,
+            explanation=f"Impendulo ngu: “{guided.phrases[1].text}”",
+            native_explanation=f"The isiXhosa phrase is “{guided.phrases[1].text}”",
+            native_hint="Picture the short conversation, and try to say the answer before revealing the choices.",
+        ),
+        ExerciseContent(
+            type="multiple_choice",
+            question=f'Uthi njani: "{guided.phrases[2].translation}"?',
+            native_question=f"How do you say “{guided.phrases[2].translation}” in isiXhosa?",
+            options=target_phrases,
+            correct=guided.phrases[2].text,
+            explanation=f"Impendulo ngu: “{guided.phrases[2].text}”",
+            native_explanation=f"The isiXhosa phrase is “{guided.phrases[2].text}”",
+            native_hint="Try the answer from memory first; the choices are only a check.",
+        ),
+    ]
+
+    return LessonContent(
+        lesson_type=guided.lesson_type,
+        title=guided.xhosa_title,
+        native_title=guided.title,
+        cefr_level=cefr_level,
+        unit_id=guided.unit_id,
+        explanation={
+            "text": guided.xhosa_title,
+            "key_points": [phrase.text for phrase in guided.phrases],
             "examples": [],
         },
         native_explanation={
-            "text": (
-                "isiXhosa has three click letters. Do not pronounce c, q, or x "
-                "as you would in English. Press Listen beside each word, copy the "
-                "sound slowly, and replay it as often as you need."
-            ),
-            "key_points": [
-                "c — dental click: put your tongue just behind your top front teeth and pull it away, like a single 'tsk'.",
-                "q — alveolar click: press the tip of your tongue against the roof of your mouth and release it with a firm pop.",
-                "x — lateral click: press one side of your tongue against your side teeth and release it, rather like a horse-clop sound.",
-                "The vowels stay clear: a as in father, e as in bed, i as in machine, o as in more, and u as in rule.",
-            ],
-            "examples": [
-                {
-                    "sentence": "cela",
-                    "note": "c — dental click · means “ask/request” · /ǀɛːla/",
-                },
-                {
-                    "sentence": "qonda",
-                    "note": "q — firm central pop · means “understand” · /ǃɔnda/",
-                },
-                {
-                    "sentence": "Xhosa",
-                    "note": "x — side click · the name Xhosa · /ǁʰɔːsa/",
-                },
-            ],
-            "common_traps": [
-                {
-                    "mistake": "Reading Xhosa as 'ex-oh-sa' or 'kuh-oh-sa'.",
-                    "fix": "Start with one side click for x, then continue directly into 'o-sa'.",
-                }
-            ],
-            "mini_glossary": [
-                {"term": "cela", "meaning": "ask / request"},
-                {"term": "qonda", "meaning": "understand"},
-                {"term": "Xhosa", "meaning": "Xhosa language or people"},
-            ],
+            "text": guided.goal,
+            "key_points": [f"{phrase.text} — {phrase.translation}" for phrase in guided.phrases],
+            "examples": [],
+            "common_traps": [],
+            "mini_glossary": [],
         },
-        exercises=[
-            ExerciseContent(
-                type="multiple_choice",
-                question="Leliphi igama eliqala ngesicofayo samazinyo u-c?",
-                native_question="Which word begins with the dental c click?",
-                options=["cela", "qonda", "Xhosa"],
-                correct="cela",
-                explanation="U-c ku-cela sisicofayo samazinyo.",
-                native_explanation="Correct: cela begins with the dental c click.",
-                native_hint="Think of the light 'tsk' sound made just behind the front teeth.",
-            ),
-            ExerciseContent(
-                type="multiple_choice",
-                question="Leliphi igama eliqala ngesicofayo esenziwa ecaleni kolwimi u-x?",
-                native_question="Which word begins with the side, or lateral, x click?",
-                options=["qonda", "Xhosa", "cela"],
-                correct="Xhosa",
-                explanation="U-x ku-Xhosa sisicofayo esenziwa ecaleni kolwimi.",
-                native_explanation="Correct: Xhosa begins with the lateral x click.",
-                native_hint="Listen for the click released at the side of the tongue.",
-            ),
-            ExerciseContent(
-                type="pronunciation",
-                question="Mamela, uze uthethe: qonda.",
-                native_question=(
-                    "Press Listen, copy the firm q click in qonda, then record yourself saying the word."
-                ),
-                options=["Begin with one firm tongue pop, then say 'on-da'."],
-                correct="qonda",
-                explanation="U-q ku-qonda sisicofayo esiqhumayo.",
-                native_explanation="qonda means 'understand' and begins with the firm q click.",
-                native_hint="Make the click first, then move straight into 'on-da'.",
-            ),
-        ],
+        exercises=exercises,
         vocabulary=[
             {
-                "word": "cela",
-                "definition": "ukucela into",
-                "translation": "ask / request",
-                "example": "Ndicela amanzi.",
-                "example_translation": "Water, please.",
-                "reading": "/ǀɛːla/",
-            },
-            {
-                "word": "qonda",
-                "definition": "ukuva intsingiselo",
-                "translation": "understand",
-                "example": "Andiqondi.",
-                "example_translation": "I do not understand.",
-                "reading": "/ǃɔnda/",
-            },
-            {
-                "word": "Xhosa",
-                "definition": "ulwimi nabantu bamaXhosa",
-                "translation": "Xhosa language or people",
-                "example": "Ndifunda isiXhosa.",
-                "example_translation": "I am learning isiXhosa.",
-                "reading": "/ǁʰɔːsa/",
-            },
+                "word": phrase.text,
+                "definition": phrase.translation,
+                "translation": phrase.translation,
+                "example": phrase.text,
+                "example_translation": phrase.translation,
+                "reading": phrase.chunks,
+                "note": phrase.usage,
+            }
+            for phrase in guided.phrases
         ],
-        grammar_refs=["xh-vowels", "xh-clicks"],
+        grammar_refs=list(guided.grammar_refs),
+        learning_flow={
+            "version": 1,
+            "day": guided.day,
+            "goal": guided.goal,
+            "coach_note": guided.coach_note,
+            "phrases": [asdict(phrase) for phrase in guided.phrases],
+            "dialogue": [asdict(line) for line in guided.dialogue],
+        },
     )
 
 
@@ -208,10 +163,10 @@ async def generate_lesson(
     native_language: str | None = None,
 ) -> LessonContent:
     if target_language == "xh-ZA":
-        curated_lesson = _curated_xhosa_click_lesson(
+        curated_lesson = _curated_xhosa_guided_lesson(
             cefr_level=cefr_level,
-            lesson_type=lesson_type,
-            unit_id=unit_id,
+            week=week,
+            day=day,
             native_language=native_language,
         )
         if curated_lesson is not None:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from app.data.curriculum import distribute_units, get_curriculum_units
+from app.data.xh.guided_course import GUIDED_XHOSA_A1_DAYS
 from app.schemas.study_plan import (
     DayPlan,
     GeneratedPlan,
@@ -19,6 +20,14 @@ async def generate_study_plan(
     No LLM call — purely deterministic from the static curriculum.
     LLM is called separately per-lesson when the user opens one for the first time.
     """
+    if (
+        target_language == "xh-ZA"
+        and request.cefr_level == "A1"
+        and request.duration_weeks == 2
+        and request.days_per_week == 7
+    ):
+        return _guided_xhosa_sprint_plan()
+
     lang_name = get_language_name(target_language)
     units = get_curriculum_units(request.cefr_level, target_language)
     lesson_slots = distribute_units(
@@ -57,6 +66,47 @@ async def generate_study_plan(
         cefr_level=request.cefr_level,
         duration_weeks=request.duration_weeks,
         days_per_week=request.days_per_week,
+        ends_with_test=True,
+        weekly_plan=weekly_plan,
+    )
+
+
+def _guided_xhosa_sprint_plan() -> GeneratedPlan:
+    weekly_plan: list[WeekPlan] = []
+    for week_number in (1, 2):
+        first_day = (week_number - 1) * 7 + 1
+        guided_days = [
+            guided for guided in GUIDED_XHOSA_A1_DAYS if first_day <= guided.day < first_day + 7
+        ]
+        weekly_plan.append(
+            WeekPlan(
+                week=week_number,
+                theme=(
+                    "Start speaking from day one"
+                    if week_number == 1
+                    else "Handle useful everyday conversations"
+                ),
+                days=[
+                    DayPlan(
+                        day=((guided.day - 1) % 7) + 1,
+                        lesson_type=guided.lesson_type,
+                        title=guided.title,
+                        objectives=[guided.goal],
+                        estimated_minutes=10,
+                        unit_id=guided.unit_id,
+                        grammar_points=list(guided.grammar_refs),
+                        vocabulary_set_ids=[],
+                    )
+                    for guided in guided_days
+                ],
+            )
+        )
+
+    return GeneratedPlan(
+        title="Your 14-day isiXhosa conversation sprint",
+        cefr_level="A1",
+        duration_weeks=2,
+        days_per_week=7,
         ends_with_test=True,
         weekly_plan=weekly_plan,
     )
