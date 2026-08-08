@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0] - 2026-08-08
+
+### Added
+
+- **isiXhosa conversation sprint**: isiXhosa (`xh-ZA`) is selectable with an honest A1-only package containing 8 curriculum units, 14 grammar topics, 13 vocabulary sets, 8 practical phrasebook categories, and 24 placement questions focused on holding a basic conversation.
+- **Two-week programme**: the duration selector now offers a 14-day intensive schedule with 13 practice sessions and a final conversation check. Short plans distribute sessions across every curriculum unit.
+- **Local isiXhosa speech**: a self-hosted `xhosa-speech` service provides pronunciation through `UBC-NLP/Simba-TTS-xho` and transcription through `digiphyte/swivuriso-turbo`; model files are cached in the deployment data directory and require no paid speech API.
+- **Free-first Railway profile**: dedicated frontend, backend, and TTS-only isiXhosa speech service definitions use private networking, persistent storage, health checks, dynamic ports, a CPU-only PyTorch wheel, and serverless-sleep-compatible timeouts.
+- **Free-tier AI providers**: Gemini is available as an OpenAI-compatible LLM provider, and Groq Whisper is available as a hosted STT provider with BCP-47 language normalization.
+
+### Changed
+
+- **Content-backed CEFR levels**: plan creation and level progression now accept only levels for which the selected language has curriculum content, preventing partial language packs from silently producing empty higher-level plans.
+- **Language-aware audio controls**: text-to-speech and speech-to-text requests carry the active target language, while voice conversation, listening, and phrasebook audio route isiXhosa to its specialised local models and retain existing providers for other languages.
+- **Assessment adaptation**: placement starts and moves only among levels present in the selected language's static assessment bank.
+- **Persistent pronunciation cache**: generated isiXhosa MP3s use content-addressed storage so repeated lesson, phrasebook, and conversation audio does not repeatedly invoke Simba.
+- **Hosted service compatibility**: ordinary Neon PostgreSQL URLs and SSL query parameters are normalized for asyncpg, Upstash TLS Redis URLs are accepted directly, and avatar/audio storage locations are configurable for attached volumes.
+- **Language-aware conversation warmup**: the client identifies the target language before opening a voice session and allows the longer first-load window needed by a sleeping Simba service.
+
+### Validation
+
+- Backend: 984 tests passed with 85.18% coverage.
+- Frontend: 449 tests passed; TypeScript and ESLint checks passed.
+
 ## [1.8.35] - 2026-08-07
 
 ### Added

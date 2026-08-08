@@ -3,7 +3,7 @@
 ![Next.js](https://img.shields.io/badge/next.js-16-black?style=flat-square)
 ![Python](https://img.shields.io/badge/python-3.14-blue?style=flat-square)
 ![Self-hosted](https://img.shields.io/badge/self--hosted-yes-orange?style=flat-square)
-![Version](https://img.shields.io/badge/version-1.8.35-brightgreen?style=flat-square)
+![Version](https://img.shields.io/badge/version-1.9.0-brightgreen?style=flat-square)
 
 <p align="left">
   <img src="assets/logo_large.png" alt="FreeLingo logo" />
@@ -16,9 +16,11 @@ grammar, vocabulary, reading comprehension, writing lessons, AI-generated listen
 
 The study plan follows a CEFR-aligned curriculum (A1-C2) organized into units with
 clear competencies and prerequisites. After a deterministic placement assessment,
-FreeLingo creates a weekly roadmap based on your selected intensity (4, 8, 12, or
+FreeLingo creates a weekly roadmap based on your selected intensity (2, 4, 8, 12, or
 16 weeks), then unlocks lessons in sequence: grammar, vocabulary, reading, writing,
 and review.
+
+isiXhosa (`xh-ZA`) is available as a conversation-first **A1 two-week sprint**. It is intentionally scoped to the content that exists today rather than claiming unsupported A2–C2 coverage: 13 guided practice sessions, pronunciation of the `c`/`q`/`x` click families, and a final basic-conversation check.
 
 The platform combines structure and adaptation: lessons are generated within
 curriculum boundaries with native-language support for lesson and exercise explanations,
@@ -62,7 +64,7 @@ If FreeLingo is useful to you or your organisation, consider [**sponsoring the p
 
 Monorepo: `backend/` (Python FastAPI) + `frontend/` (Next.js 16 App Router)
 deployed via Docker Compose with PostgreSQL 16 and Redis 7.
-The backend proxies all external services (Ollama, Kokoro, Whisper) —
+The backend proxies all external services (Ollama, Kokoro, Whisper, and the local isiXhosa speech service) —
 the frontend never calls them directly.
 
 ## Repository
@@ -75,6 +77,7 @@ freelingo/
 ├── docs/                            # GitHub Pages landing site
 ├── frontend/                        # Next.js (React)
 ├── messages/                        # i18n translation files (de, en, es, fr, it, nl, pl, pt, ro, ru)
+├── speech/                          # Local isiXhosa Simba TTS + Swivuriso STT service
 ├── specs/                           # Specification files
 ├── AGENTS.md                        # AI assistant instructions
 ├── CHANGELOG.md                     # Version history
@@ -98,11 +101,11 @@ freelingo/
 | Backend  | FastAPI, SQLAlchemy async, Alembic, Pydantic v2          |
 | Database | PostgreSQL 16                                            |
 | Cache    | Redis 7                                                  |
-| LLM      | Ollama (local) · OpenAI · Anthropic · DeepSeek           |
-| TTS      | Kokoro-FastAPI (local) · OpenAI TTS API                  |
-| STT      | faster-whisper (local) · OpenAI Whisper API              |
+| LLM      | Ollama (local) · Gemini · OpenAI · Anthropic · DeepSeek  |
+| TTS      | Kokoro-FastAPI · Simba isiXhosa (local) · OpenAI TTS API |
+| STT      | faster-whisper · Swivuriso isiXhosa (local) · Groq · OpenAI |
 | Auth     | JWT (access + refresh), multi-user, roles (admin/user).  |
-| Deploy   | Docker Compose                                           |
+| Deploy   | Docker Compose · Railway                                 |
 
 ## Phases
 
@@ -162,11 +165,25 @@ The first registered user becomes admin automatically.
 
 - The recommended model for Ollama is `gemma4:e4b`. It can be changed in `.env`.
 - The backend acts as a proxy for Ollama/TTS/STT calls so the frontend never talks directly to those services.
-- The `LLM_PROVIDER` field controls the LLM provider: `ollama` (local, recommended), `openai`, `anthropic`, or `deepseek`.
-- `TTS_PROVIDER` and `STT_PROVIDER` are independent: `local` (Kokoro / faster-whisper) or `openai` (OpenAI API).
+- The `LLM_PROVIDER` field controls the LLM provider: `ollama`, `gemini`, `openai`, `anthropic`, or `deepseek`. The free-first Railway profile uses Gemini.
+- `TTS_PROVIDER` and `STT_PROVIDER` are independent. TTS supports `local` or `openai`; STT supports `local`, `groq`, or `openai`.
 - New-user and subscription quota defaults are configurable in `.env` with `DEFAULT_CONVERSATION_*`, `DEFAULT_MONTHLY_TOKENS_LIMIT`, and `ASSESSMENT_VOICE_TRIAL_DURATION_SECONDS`. Quota values of `0` mean unlimited. Conversation duration defaults must use the same supported options as the settings UI: `900` or `1800` seconds for max duration, and `60`, `180`, or `300` seconds for inactivity timeout.
 - Freemium quotas for the hosted free plan are configurable via `FREEMIUM_CHAT_DAILY_MESSAGES`, `FREEMIUM_LESSONS_DAILY`, `FREEMIUM_LISTENING_WEEKLY`, `FREEMIUM_READING_WEEKLY`, and `FREEMIUM_VOICE_WEEKLY_MINUTES`. A quota value of `0` blocks the feature entirely for free users. New users receive a `FREEMIUM_TRIAL_DAYS`-day full-access trial when `FREEMIUM_TRIAL_ENABLED=true`. Self-hosted deployments ignore all freemium settings (everything is free).
-- Supported study languages include English (`en-GB`, `en-US`), Spanish (`es-ES`), Italian (`it-IT`), Portuguese (`pt-PT`), German (`de-DE`), French (`fr-FR`), Japanese (`ja-JP`), Korean (`ko-KR`), and Mainland Chinese (`zh-CN`). The study language is chosen on `/onboarding` and can be expanded later from Settings → My Languages. The user's native language is asked during registration and is used for flashcard translations, tutor feedback, lesson native explanations, and cached native-language help in static grammar, phrasebook, and vocabulary resources.
+- Supported study languages include English (`en-GB`, `en-US`), Spanish (`es-ES`), Italian (`it-IT`), Portuguese (`pt-PT`), German (`de-DE`), French (`fr-FR`), Japanese (`ja-JP`), Korean (`ko-KR`), Mainland Chinese (`zh-CN`), and the A1 isiXhosa sprint (`xh-ZA`). The study language is chosen on `/onboarding` and can be expanded later from Settings → My Languages. The user's native language is asked during registration and is used for flashcard translations, tutor feedback, lesson native explanations, and cached native-language help in static grammar, phrasebook, and vocabulary resources.
+
+## Free-first Railway deployment
+
+The repository includes a three-service Railway profile for the isiXhosa sprint:
+
+- `frontend`: Next.js, public domain, root directory `/`, config path `/frontend/railway.toml`
+- `backend`: FastAPI, public domain plus private service networking, root directory `/backend`, config path `/backend/railway.toml`, persistent volume mounted at `/data`
+- `xhosa-speech`: Simba TTS only, private service networking, root directory `/speech`, config path `/speech/railway.toml`, persistent model volume mounted at `/models/huggingface`
+
+Use the matching `railway.*.env.example` file for each service. The recommended external free tiers are Neon Postgres, Upstash Redis, Gemini for the tutor, and Groq Whisper for speech recognition. The backend accepts a standard Neon `postgresql://` URL and normalizes its SSL query parameters for asyncpg; an Upstash `rediss://` URL works directly.
+
+Set `BACKEND_URL=http://backend.railway.internal:8000` on the frontend and use `http://xhosa-speech.railway.internal:9100` for both backend speech URLs. Generate public Railway domains for the frontend and backend, then set `NEXT_PUBLIC_API_URL` on the frontend to the backend's public `https://` domain so browser WebSocket voice sessions connect correctly. Keep `LLM_PROVIDER=gemini`, `STT_PROVIDER=groq`, and `TTS_PROVIDER=local` for this profile.
+
+Enable Railway serverless sleeping to minimise idle usage. The first Simba request after a sleep or fresh deployment downloads/loads the model and can take several minutes; later requests and generated isiXhosa MP3s are served from persistent caches. Gemini's free tier may use submitted content to improve Google products, so do not enter sensitive personal information while using that tier.
 
 ## Linux host: Redis memory overcommit
 
@@ -191,15 +208,18 @@ The WebSocket URL is derived automatically from `window.location`, so no extra c
 
 ## Enabling TTS & STT
 
-TTS and STT each support two providers, selected independently via `.env`.
+TTS and STT are selected independently via `.env`.
 
 ### Provider options
 
 | Variable         | Values             | Notes                                                         |
 | ---------------- | ------------------ | ------------------------------------------------------------- |
 | `TTS_PROVIDER`   | `local` · `openai` | `local` uses Kokoro-FastAPI; `openai` uses OpenAI TTS API     |
-| `STT_PROVIDER`   | `local` · `openai` | `local` uses faster-whisper; `openai` uses OpenAI Whisper API |
+| `STT_PROVIDER`   | `local` · `groq` · `openai` | `groq` uses hosted Whisper; `local` and `openai` retain their existing paths |
 | `OPENAI_API_KEY` | string             | Required for `openai` provider on either service              |
+| `GROQ_API_KEY`   | string             | Required when `STT_PROVIDER=groq`                              |
+
+When the active language is isiXhosa and the providers are `local`, FreeLingo automatically routes TTS and STT to `XHOSA_SPEECH_BASE_URL`. With the Railway profile, TTS stays local through Simba while Groq handles STT. Other languages continue to use their selected providers.
 
 When using `openai` providers, the `kokoro` and `whisper` Docker services can be removed from the stack — no local GPU required.
 
@@ -211,6 +231,13 @@ The `kokoro` and `whisper` services in `docker-compose.yml` are pre-configured f
 TTS_PROVIDER=local
 STT_PROVIDER=local
 ```
+
+For isiXhosa, Compose also builds `xhosa-speech`. Its first use downloads and caches the free models under `${DATA_PATH}/models/huggingface`:
+
+- TTS: [`UBC-NLP/Simba-TTS-xho`](https://huggingface.co/UBC-NLP/Simba-TTS-xho) (CC BY 4.0)
+- STT: [`digiphyte/swivuriso-turbo`](https://huggingface.co/digiphyte/swivuriso-turbo) (MIT)
+
+The default Compose service is portable and runs on CPU. If CUDA is exposed to the container, `XHOSA_SPEECH_DEVICE=auto` uses it automatically; a direct host run on Apple silicon can use MPS for Simba TTS while Swivuriso falls back to CPU. Initial model download and first inference are slower than later requests.
 
 The Kokoro image (`ghcr.io/remsky/kokoro-fastapi-gpu`) supports all NVIDIA architectures via two builds: `:latest-cu128` (0.4.0+) for Blackwell/RTX 50-series, and `:latest` for Maxwell through Hopper (confirmed Pascal/GTX 10xx support).
 
@@ -235,7 +262,7 @@ whisper:
 
 All voices are for English only — Kokoro-82M does not ship multilingual voices. Grades reflect training data quality and quantity.
 
-> **Multilingual learners:** as FreeLingo adds target languages beyond English (Spanish, French, German, Italian, Japanese, Korean, Mainland Chinese, Portuguese, etc.), Kokoro cannot produce audio for those languages. For non-English study languages, switch to `TTS_PROVIDER=openai` (see [Option B — OpenAI providers](#option-b--openai-providers-no-local-gpu-needed)).
+> **Multilingual learners:** Kokoro cannot produce non-English audio. isiXhosa is the exception because local mode routes it to Simba TTS. Other non-English languages require a compatible local provider or `TTS_PROVIDER=openai`.
 
 | Voice        | Gender | Accent   | Grade |
 | ------------ | ------ | -------- | ----- |

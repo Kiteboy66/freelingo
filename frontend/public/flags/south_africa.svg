@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" role="img" aria-label="Flag of South Africa">
+  <path fill="#de3831" d="M0 0h900v300H0z"/>
+  <path fill="#002395" d="M0 300h900v300H0z"/>
+  <path fill="#fff" d="M0 120l270 180L0 480v120h60l360-240h480V240H420L60 0H0z"/>
+  <path fill="#ffb612" d="M0 180l180 120L0 420z"/>
+  <path fill="#007a4d" d="M0 210l135 90L0 390v70l240-160L0 140zm240 50l60 40-60 40h660v-80z"/>
+  <path fill="#000" d="M0 200l150 100L0 400z"/>
+</svg>

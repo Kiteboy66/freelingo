@@ -48,6 +48,8 @@ services:
       OLLAMA_MODEL: ${OLLAMA_MODEL}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       OPENAI_MODEL: ${OPENAI_MODEL}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       ANTHROPIC_MODEL: ${ANTHROPIC_MODEL}
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
@@ -55,18 +57,24 @@ services:
       TTS_PROVIDER: ${TTS_PROVIDER:-local}
       TTS_BASE_URL: ${TTS_BASE_URL:-http://kokoro:8880}
       TTS_VOICE: ${TTS_VOICE:-af_heart}
+      XHOSA_SPEECH_BASE_URL: ${XHOSA_SPEECH_BASE_URL:-http://xhosa-speech:9100}
       OPENAI_TTS_MODEL: ${OPENAI_TTS_MODEL:-tts-1}
       OPENAI_TTS_VOICE: ${OPENAI_TTS_VOICE:-nova}
       OPENAI_TTS_SPEED: ${OPENAI_TTS_SPEED:-1.0}
       STT_PROVIDER: ${STT_PROVIDER:-local}
       STT_BASE_URL: ${STT_BASE_URL:-http://whisper:9000}
       OPENAI_STT_MODEL: ${OPENAI_STT_MODEL:-whisper-1}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_STT_MODEL: ${GROQ_STT_MODEL:-whisper-large-v3}
+      TTS_CACHE_ENABLED: ${TTS_CACHE_ENABLED:-true}
+      AVATAR_STORAGE_PATH: ${AVATAR_STORAGE_PATH:-/app/avatars}
+      TTS_PREVIEW_STORAGE_PATH: ${TTS_PREVIEW_STORAGE_PATH:-/app/tts_previews}
       CORS_ORIGINS: ${CORS_ORIGINS:-["http://localhost:3000"]}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-true}
       FIRST_USER_IS_ADMIN: ${FIRST_USER_IS_ADMIN:-true}
       BLOCKED_EMAIL_DOMAINS: ${BLOCKED_EMAIL_DOMAINS:-[]}
-      AVAILABLE_TARGET_LANGUAGES: ${AVAILABLE_TARGET_LANGUAGES:-["en-US","en-GB"]}
+      AVAILABLE_TARGET_LANGUAGES: ${AVAILABLE_TARGET_LANGUAGES:-["en-US","en-GB","xh-ZA"]}
       EMAIL_ENABLED: ${EMAIL_ENABLED:-false}
       CONTACT_EMAIL: ${CONTACT_EMAIL:-}
       SMTP_HOST: ${SMTP_HOST:-localhost}
@@ -165,3 +173,14 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
+
+  xhosa-speech:
+    build: ./speech
+    container_name: freelingo-xhosa-speech
+    restart: unless-stopped
+    environment:
+      XHOSA_TTS_MODEL: ${XHOSA_TTS_MODEL:-UBC-NLP/Simba-TTS-xho}
+      XHOSA_STT_MODEL: ${XHOSA_STT_MODEL:-digiphyte/swivuriso-turbo}
+      SPEECH_DEVICE: ${XHOSA_SPEECH_DEVICE:-auto}
+    volumes:
+      - ${DATA_PATH}/models/huggingface:/models/huggingface

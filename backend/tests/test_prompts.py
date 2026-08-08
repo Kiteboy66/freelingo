@@ -83,6 +83,7 @@ def test_regional_language_names_and_hints_are_prompt_ready() -> None:
     assert get_language_name("ja-JP") == "Japanese"
     assert get_language_name("ko-KR") == "Korean (South Korea)"
     assert get_language_name("zh-CN") == "Chinese (Mainland China)"
+    assert get_language_name("xh-ZA") == "isiXhosa"
     assert _get_lang_hint("es-ES") == get_language_prompt_overlay("es-ES")
     assert _get_lang_hint("pt-PT") == get_language_prompt_overlay("pt-PT")
 
@@ -125,6 +126,7 @@ def test_language_prompt_overlays_cover_supported_learning_languages() -> None:
         "ja-JP": "standard Japanese",
         "ko-KR": "standard Korean",
         "zh-CN": "Mainland China Standard Mandarin",
+        "xh-ZA": "standard isiXhosa",
     }
 
     for target_language, marker in expected_markers.items():
@@ -142,6 +144,7 @@ def test_language_prompt_overlay_aliases_cover_cjk_iso_codes() -> None:
     assert get_language_prompt_overlay("ja") == get_language_prompt_overlay("ja-JP")
     assert get_language_prompt_overlay("ko") == get_language_prompt_overlay("ko-KR")
     assert get_language_prompt_overlay("zh") == get_language_prompt_overlay("zh-CN")
+    assert get_language_prompt_overlay("xh") == get_language_prompt_overlay("xh-ZA")
 
 
 def test_tutor_prompts_include_shared_memory_instruction() -> None:

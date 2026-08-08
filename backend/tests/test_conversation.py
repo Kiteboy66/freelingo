@@ -36,7 +36,9 @@ async def _create_user_and_token(db_session) -> tuple:
     )
     db_session.add(user)
     await db_session.flush()
-    db_session.add(UserLanguage(user_id=user.id, target_language="en-US", is_active=True))
+    db_session.add(
+        UserLanguage(user_id=user.id, target_language="en-US", is_active=True)
+    )
     await db_session.commit()
     await db_session.refresh(user)
     token = create_access_token(user.id, user.role)
@@ -135,11 +137,23 @@ async def test_warmup_tts_falls_back_to_synthesis_for_local_service() -> None:
 
     await conversation_router._warmup_tts(tts_service)
 
-    tts_service.synthesize.assert_called_once_with("ready")
+    tts_service.synthesize.assert_called_once_with("ready", language="en-GB")
 
 
 @pytest.mark.asyncio
-async def test_warmup_allows_valid_assessment_voice_trial(client, test_user, db_session) -> None:
+async def test_warmup_tts_routes_xhosa_to_language_aware_service() -> None:
+    tts_service = type("LocalMock", (object,), {})()
+    tts_service.synthesize = AsyncMock()
+
+    await conversation_router._warmup_tts(tts_service, "xh-ZA")
+
+    tts_service.synthesize.assert_called_once_with("Ndilungile", language="xh-ZA")
+
+
+@pytest.mark.asyncio
+async def test_warmup_allows_valid_assessment_voice_trial(
+    client, test_user, db_session
+) -> None:
     """Warmup accepts a valid post-assessment voice trial token without subscription."""
     user, headers = test_user
 

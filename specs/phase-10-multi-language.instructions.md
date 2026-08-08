@@ -37,6 +37,7 @@ FreeLingo moves from "one user = one language = one study plan" to an architectu
 - `ja-JP` — Japanese
 - `ko-KR` — Korean (South Korea)
 - `pt-PT` — Portuguese (Portugal)
+- `xh-ZA` — isiXhosa (A1 conversation sprint)
 - `zh-CN` — Chinese (Mainland China)
 
 ### Japanese backend data
@@ -48,6 +49,10 @@ Japanese (`ja-JP`) is enabled in backend schemas, `AVAILABLE_TARGET_LANGUAGES` d
 - Vocabulary — 152 sets matching all curriculum `vocabulary_set_ids`, with 1,112 words across A1-C2
 - Phrasebook — 44 A1-C2 categories with 318 Japanese phrases, contexts, registers, and unit references, split by CEFR level modules
 - Assessment bank — 120 static questions across grammar, vocabulary, and reading
+
+### isiXhosa backend data
+
+isiXhosa (`xh-ZA`) is enabled as an explicitly level-limited conversation sprint. `backend/app/data/xh/` advertises only A1 and contains 8 curriculum units, 14 grammar topics, 13 vocabulary sets, 8 phrasebook categories, and 24 assessment questions. The frontend derives placement levels from the bank, defaults isiXhosa to the two-week schedule, and does not offer empty A2–C2 overrides. Local speech routes to Simba TTS and Swivuriso STT.
 
 ### Korean backend data
 
@@ -81,13 +86,13 @@ Prepared capabilities and catalog entries live in `frontend/src/lib/target-langu
 
 Learned-language content should render through `TargetLanguageText` rather than direct `font-mono` text. Current Latin-script languages keep the existing mono visual style via `font-target-latin`; CJK content receives larger, looser, non-uppercase typography with Noto/system CJK font fallbacks.
 
-All 10 `messages/*.json` locale files include `targetLanguages` names, ISO aliases, descriptions, and landing greetings for `ja-JP`, `ko-KR`, and `zh-CN`.
+All 10 `messages/*.json` locale files include target-language display names and aliases for isiXhosa as well as the existing languages.
 
 ### CJK backend readiness
 
 The backend service layer includes prompt, metadata, registration-schema, environment default, dispatcher, and static-content support for Japanese, Korean, and Mainland Chinese.
 
-`.env.example`, `.env.dev`, and backend defaults include `ja-JP`, `ko-KR`, and `zh-CN` in `AVAILABLE_TARGET_LANGUAGES`. Backend `get_available_languages()` filters that list through `SUPPORTED_TARGET_LANGUAGES`; all three CJK codes are now accepted.
+`.env.example`, `.env.dev`, and backend defaults include `ja-JP`, `ko-KR`, `zh-CN`, and `xh-ZA` in `AVAILABLE_TARGET_LANGUAGES`. Backend `get_available_languages()` filters that list through `SUPPORTED_TARGET_LANGUAGES`. Supported CEFR levels are independently derived from non-empty curriculum data so isiXhosa exposes A1 without pretending A2–C2 exist.
 
 Prepared capabilities live in `backend/app/services/language_helpers.py`:
 
@@ -124,6 +129,8 @@ Prompt overlays live in `backend/app/services/prompts/common.py` and include ali
 - `backend/app/data/ja/` (30 files) — Japanese data phase
 - `backend/app/data/ko/` (30 files) — Korean data phase
 - `backend/app/data/zh/` (33 files) — Mainland Chinese data phase
+- `backend/app/data/xh/` (6 files) — A1 isiXhosa conversation sprint
+- `speech/` — local Simba TTS + Swivuriso STT service
 - `frontend/src/config/target-languages.ts` — 10.4
 - `frontend/src/store/language.ts` — 10.4
 - `frontend/src/components/LanguageSwitcher.tsx` — 10.4
@@ -138,6 +145,7 @@ Prompt overlays live in `backend/app/services/prompts/common.py` and include ali
 - `frontend/public/flags/japan.jpg` — CJK frontend catalog
 - `frontend/public/flags/south_korea.jpg` — CJK frontend catalog
 - `frontend/public/flags/china.jpg` — CJK frontend catalog
+- `frontend/public/flags/south_africa.svg` — isiXhosa frontend catalog
 
 ---
 

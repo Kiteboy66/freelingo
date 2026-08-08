@@ -7,11 +7,14 @@ from app.core.app_logger import get_logger
 
 logger = get_logger(__name__)
 
+XHOSA_TTS_TIMEOUT_SECONDS = 300.0
+
 
 class KokoroTTSService:
-    def __init__(self, base_url: str, voice: str) -> None:
+    def __init__(self, base_url: str, voice: str, xhosa_base_url: str | None = None) -> None:
         self.base_url = base_url
         self.voice = voice
+        self.xhosa_base_url = xhosa_base_url.rstrip("/") if xhosa_base_url else None
 
     async def health(self) -> None:
         """Raise if Kokoro is unreachable."""
@@ -23,17 +26,21 @@ class KokoroTTSService:
         self, text: str, voice: str | None = None, language: str | None = None
     ) -> bytes:
         """Call Kokoro-FastAPI and return MP3 audio bytes."""
-        _ = language  # Kokoro handles language via the voice model itself
+        use_xhosa = bool(language and language.lower().split("-")[0] == "xh")
+        base_url = self.xhosa_base_url if use_xhosa and self.xhosa_base_url else self.base_url
+        model = "UBC-NLP/Simba-TTS-xho" if use_xhosa else "kokoro"
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                f"{self.base_url}/v1/audio/speech",
+                f"{base_url}/v1/audio/speech",
                 json={
-                    "model": "kokoro",
+                    "model": model,
                     "input": text,
                     "voice": voice or self.voice,
                     "response_format": "mp3",
                 },
-                timeout=30.0,
+                # The first local isiXhosa request may need to download and
+                # initialise Simba TTS. Warm requests are much faster.
+                timeout=XHOSA_TTS_TIMEOUT_SECONDS if use_xhosa else 30.0,
             )
             response.raise_for_status()
             return response.content

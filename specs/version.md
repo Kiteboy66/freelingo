@@ -1,9 +1,11 @@
 # Version
 
-**1.8.35**
+**1.9.0**
 
 > Canonical project version. Update this file when bumping.
 > Full history in [CHANGELOG.md](../CHANGELOG.md).
+
+Current `1.9.0` scope includes the A1-only 14-day isiXhosa conversation sprint, cached Simba pronunciation, Groq transcription, Gemini tutor support, and the free-first three-service Railway deployment profile.
 
 ## Sync rule
 

@@ -27,7 +27,7 @@ If a field intentionally stores a translation or learner aid, make that purpose 
 
 ## Activation Rule
 
-Do not add a language code to backend `SUPPORTED_TARGET_LANGUAGES` until the backend data package is complete:
+Do not add a language code to backend `SUPPORTED_TARGET_LANGUAGES` until the backend data package is complete for every level it advertises:
 
 - Curriculum
 - Grammar
@@ -36,6 +36,8 @@ Do not add a language code to backend `SUPPORTED_TARGET_LANGUAGES` until the bac
 - Assessment bank
 
 `AVAILABLE_TARGET_LANGUAGES` may contain operator-ready codes, but the backend filters that list through `SUPPORTED_TARGET_LANGUAGES`. A language becomes selectable only when both are true: the code is allowed by backend and present in the operator-visible list.
+
+Level-limited packs are permitted when their scope is explicit. `get_supported_cefr_levels(target_language)` derives the advertised levels from non-empty curriculum entries. Plan creation must reject any other level, assessment controls must show only levels present in that language's bank, and completion tests must never unlock a level without content. Do not create empty A2–C2 modules to imply completeness. isiXhosa (`xh-ZA`) is the reference A1-only package.
 
 ## Canonical Baseline: `en-GB`
 
@@ -52,6 +54,8 @@ These are target ranges, not exact hard requirements. A new language should be c
 ## Backend Data Package Structure
 
 Create `backend/app/data/<iso639>/` using the `en_GB` shape as reference.
+
+For a level-limited pack, a compact module per content type is acceptable while the inventory is small. It must export the same dispatcher contract and contain no placeholder levels.
 
 Required files:
 
@@ -206,7 +210,13 @@ Update or verify:
 - `backend/app/services/language_helpers.py`: display name, ISO-639 code, script, romanization, word-spacing, reading length unit.
 - `backend/app/services/prompts/common.py`: language overlay and ISO alias.
 - Reading/listening length guidance, especially for character-based scripts.
-- TTS/STT provider compatibility. Kokoro is English-only; non-English languages generally require `TTS_PROVIDER=openai`.
+- TTS/STT provider compatibility. Kokoro is English-only. A language may supply a specialised local service; isiXhosa routes local requests to Simba TTS and Swivuriso STT through `XHOSA_SPEECH_BASE_URL`. Other non-English languages require a compatible local provider or `TTS_PROVIDER=openai`.
+
+## isiXhosa A1 Reference Pack
+
+`backend/app/data/xh/` intentionally advertises only A1 and contains 8 conversation-first units, 14 grammar topics, 13 vocabulary sets, 8 phrasebook categories, and 24 assessment questions. Its two-week option uses 7 days per week: 13 learning slots plus the completion check. The initial units explicitly teach the three click families (`c` dental, `q` alveolar, `x` lateral), followed by greetings, introductions, clarification, family, food, directions, transport, and an integrated basic conversation.
+
+The initial phrase and cultural review used the University of South Africa's free [Xhosa Theme 1: Greetings and Courtesies](https://myadmin.unisa.ac.za/static/corporate_web/Content/UnisaOpen/freeOnlineCourse/Xhosa/Xhosa1.html) and Rhodes University's [IsiXhosa for Law](https://www.ru.ac.za/media/rhodesuniversity/content/law/documents/2011courseoutlines/IsiXhosa.pdf). These references do not replace review by a native isiXhosa educator before treating the course as production-grade instruction.
 
 ## Tests
 

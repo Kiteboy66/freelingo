@@ -9,6 +9,7 @@ export interface DurationOption {
 }
 
 export const DURATION_OPTIONS: DurationOption[] = [
+  { weeks: 2, daysPerWeek: 7, intensity: 'intensive' },
   { weeks: 4, daysPerWeek: 5, intensity: 'intensive' },
   { weeks: 8, daysPerWeek: 5, intensity: 'standard' },
   { weeks: 12, daysPerWeek: 4, intensity: 'relaxed' },
@@ -49,7 +50,7 @@ export default function DurationSelector({
   const tCommon = useTranslations('common')
   const selected =
     DURATION_OPTIONS.find((o) => o.weeks === selectedWeeks) ??
-    DURATION_OPTIONS[2]
+    DURATION_OPTIONS.find((o) => o.weeks === 12)!
 
   const intensityMap: Record<string, string> = {
     intensive: t('intensity.intensive'),

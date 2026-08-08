@@ -4,6 +4,7 @@ import { useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { apiFetch } from '@/lib/api'
 import { float32ToWav } from '@/lib/audio'
+import { useLanguageStore } from '@/store/language'
 
 interface VoiceRecorderProps {
   onTranscription: (text: string) => void
@@ -27,6 +28,7 @@ export function VoiceRecorder({
   const processorRef = useRef<ScriptProcessorNode | null>(null)
   const autoStopRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const t = useTranslations('voiceRecorder')
+  const activeLanguage = useLanguageStore((s) => s.activeLanguage)
 
   function cleanupAudio() {
     if (autoStopRef.current) {
@@ -85,6 +87,7 @@ export function VoiceRecorder({
       new Blob([wav], { type: 'audio/wav' }),
       'recording.wav'
     )
+    formData.append('language', activeLanguage?.iso639 ?? 'en')
 
     try {
       const res = await apiFetch('/api/stt', {

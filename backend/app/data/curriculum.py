@@ -24,6 +24,7 @@ _LANG_MODULES: dict[str, str] = {
     "ja": "app.data.ja.curriculum",
     "ko": "app.data.ko.curriculum",
     "pt": "app.data.pt.curriculum",
+    "xh": "app.data.xh.curriculum",
     "zh": "app.data.zh.curriculum",
 }
 
@@ -120,7 +121,31 @@ _I18N = {
             "完成评估以解锁下一个等级",
         ],
     },
+    "xh-ZA": {
+        "lesson_title": "{title} - Isifundo {n}",
+        "test_unit_title": "Uvavanyo lokugqiba inqanaba {level}",
+        "test_title": "Uvavanyo lokugqiba inqanaba {level}",
+        "test_objectives": [
+            "Phinda zonke izihloko zeli nqanaba",
+            "Gqiba uvavanyo lwencoko lweentsuku ezilishumi elinesine",
+        ],
+    },
 }
+
+
+def get_supported_cefr_levels(target_language: str = "en-GB") -> list[str]:
+    """Return only the CEFR levels with real curriculum content."""
+    curriculum = get_curriculum(target_language)
+    return [level for level in CEFR_LEVELS if curriculum.get(level)]
+
+
+def get_next_supported_cefr_level(level: str, target_language: str = "en-GB") -> str | None:
+    """Return the next content-backed level, never a placeholder level."""
+    levels = get_supported_cefr_levels(target_language)
+    if level not in levels:
+        return None
+    index = levels.index(level)
+    return levels[index + 1] if index + 1 < len(levels) else None
 
 
 def _resolve_module(target_language: str) -> object:
@@ -165,13 +190,17 @@ def distribute_units(
         return []
 
     slots: list[dict] = []
-    unit_index = 0
-    type_index = 0
+    lessons_seen_by_unit: dict[str, int] = {}
 
     for slot in range(lesson_slots):
-        unit = units[min(unit_index, len(units) - 1)]
+        # Spread the available sessions across every unit. This matters for
+        # short intensive plans, where walking each unit's full lesson-type
+        # list before advancing can leave the final competencies untouched.
+        unit_index = min((slot * len(units)) // lesson_slots, len(units) - 1)
+        unit = units[unit_index]
         lt_list = unit.lesson_types
-        lt = lt_list[type_index % len(lt_list)] if lt_list else "grammar"
+        unit_lesson_number = lessons_seen_by_unit.get(unit.id, 0)
+        lt = lt_list[unit_lesson_number % len(lt_list)] if lt_list else "grammar"
 
         slots.append(
             {
@@ -180,7 +209,9 @@ def distribute_units(
                 "unit_id": unit.id,
                 "unit_title": unit.title,
                 "lesson_type": lt,
-                "title": i18n["lesson_title"].format(title=unit.title, n=type_index + 1),
+                "title": i18n["lesson_title"].format(
+                    title=unit.title, n=unit_lesson_number + 1
+                ),
                 "objectives": (unit.competency_checklist[:2] if unit.competency_checklist else []),
                 "estimated_minutes": 25,
                 "grammar_points": (unit.grammar_points[:2] if unit.grammar_points else []),
@@ -189,13 +220,7 @@ def distribute_units(
                 ),
             }
         )
-
-        type_index += 1
-        if type_index % len(lt_list) == 0 and unit_index < len(units) - 1:
-            remaining_slots = lesson_slots - slot - 1
-            remaining_units = len(units) - unit_index - 1
-            if remaining_slots <= remaining_units * len(units[unit_index + 1].lesson_types):
-                unit_index += 1
+        lessons_seen_by_unit[unit.id] = unit_lesson_number + 1
 
     last_unit = units[-1]
     level = units[0].level

@@ -55,6 +55,7 @@ services:
       TTS_PROVIDER: ${TTS_PROVIDER:-local}
       TTS_BASE_URL: ${TTS_BASE_URL:-http://kokoro:8880}
       TTS_VOICE: ${TTS_VOICE:-af_heart}
+      XHOSA_SPEECH_BASE_URL: ${XHOSA_SPEECH_BASE_URL:-http://xhosa-speech:9100}
       OPENAI_TTS_MODEL: ${OPENAI_TTS_MODEL:-tts-1}
       OPENAI_TTS_VOICE: ${OPENAI_TTS_VOICE:-nova}
       OPENAI_TTS_SPEED: ${OPENAI_TTS_SPEED:-1.0}
@@ -66,7 +67,7 @@ services:
       ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-true}
       FIRST_USER_IS_ADMIN: ${FIRST_USER_IS_ADMIN:-true}
       BLOCKED_EMAIL_DOMAINS: ${BLOCKED_EMAIL_DOMAINS:-[]}
-      AVAILABLE_TARGET_LANGUAGES: ${AVAILABLE_TARGET_LANGUAGES:-["en-US","en-GB"]}
+      AVAILABLE_TARGET_LANGUAGES: ${AVAILABLE_TARGET_LANGUAGES:-["en-US","en-GB","xh-ZA"]}
       EMAIL_ENABLED: ${EMAIL_ENABLED:-false}
       CONTACT_EMAIL: ${CONTACT_EMAIL:-}
       SMTP_HOST: ${SMTP_HOST:-localhost}
@@ -129,3 +130,14 @@ services:
       - "3000:3000"
     depends_on:
       - backend
+
+  xhosa-speech:
+    build: ./speech
+    container_name: freelingo-xhosa-speech
+    restart: unless-stopped
+    environment:
+      XHOSA_TTS_MODEL: ${XHOSA_TTS_MODEL:-UBC-NLP/Simba-TTS-xho}
+      XHOSA_STT_MODEL: ${XHOSA_STT_MODEL:-digiphyte/swivuriso-turbo}
+      SPEECH_DEVICE: ${XHOSA_SPEECH_DEVICE:-auto}
+    volumes:
+      - ${DATA_PATH}/models/huggingface:/models/huggingface

@@ -1,5 +1,5 @@
 ---
-description: "Testing strategy for FreeLingo: backend pytest suite (44 test files, 973 tests, 84.79% last measured coverage, with SQLite in-memory DB and Redis mocking), frontend Vitest suite (41 test files, 446 tests, no configured coverage, covering stores, components, lib, hooks, app pages, i18n, dashboard announcements, billing paywall UI, billing success verification, feedback unread labels, SSE parsing, memory toasts, chat stream resets, and middleware), E2E plan (Playwright, pending), CI integration, and coverage requirements."
+description: "Testing strategy for FreeLingo: backend pytest suite (46 test files, 984 tests, 85.18% last measured coverage, with SQLite in-memory DB and Redis mocking), frontend Vitest suite (41 test files, 449 tests, no configured coverage), E2E plan (Playwright, pending), CI integration, and coverage requirements."
 applyTo: "**/*.test.*, **/*.spec.*, **/tests/**, **/__tests__/**"
 ---
 
@@ -7,11 +7,11 @@ applyTo: "**/*.test.*, **/*.spec.*, **/tests/**, **/__tests__/**"
 
 ## Overview
 
-- Backend unit + integration — Framework: pytest + pytest-asyncio; Scope: API endpoints, services, SM-2 algorithm, data integrity; Coverage: 84.79% last measured (target: 70%); Status: Implemented
+- Backend unit + integration — Framework: pytest + pytest-asyncio; Scope: API endpoints, services, SM-2 algorithm, data integrity; Coverage: 85.18% last measured (target: 70%); Status: Implemented
 - Frontend unit — Framework: Vitest; Scope: Stores, components, hooks, lib, middleware; Coverage: Not configured; Status: Implemented
 - E2E — Framework: Playwright; Scope: Critical user flows; Coverage: Smoke; Status: Pending
 
-All tests pass on every push. Backend coverage threshold configured at 70%, last measured at 84.79%. Frontend tests cover stores, critical components (VoiceRecorder, AudioPlayer, ProfileSection, UnitCard/UnitDrawer, LanguageSwitcher, TargetLanguageSelector, DashboardAnnouncement, review UI, LanguageBubbles, billing paywall UI, memory toast), the admin announcement editor, billing success verification, app pages, hooks, lib modules, SSE framing and reset handling, i18n, and middleware. Frontend coverage is not currently reported because Vitest coverage is not configured and `@vitest/coverage-v8` is not installed.
+All tests pass on every push. Backend coverage threshold configured at 70%, last measured at 85.18%. Frontend tests cover stores, critical components (VoiceRecorder, AudioPlayer, ProfileSection, UnitCard/UnitDrawer, LanguageSwitcher, TargetLanguageSelector, DashboardAnnouncement, review UI, LanguageBubbles, billing paywall UI, memory toast), the admin announcement editor, billing success verification, app pages, hooks, lib modules, SSE framing and reset handling, i18n, and middleware. Frontend coverage is not currently reported because Vitest coverage is not configured and `@vitest/coverage-v8` is not installed.
 
 ---
 
@@ -21,7 +21,7 @@ All tests pass on every push. Backend coverage threshold configured at 70%, last
 
 - **Database**: SQLite in-memory (`sqlite+aiosqlite:///:memory:`) for fast, isolated tests — no PostgreSQL dependency. Tables are auto-created/dropped per test via `setup_db` fixture.
 - **Redis**: mocked with an in-memory dict-based mock (implements `setex`, `get`, `delete`, `getex` with same interface as `redis.asyncio.Redis`). No Redis server needed.
-- **LLM**: always mocked at the service layer. Tests never call real Ollama, OpenAI, Anthropic, or DeepSeek.
+- **LLM**: always mocked at the service layer. Tests never call real Ollama, Gemini, OpenAI, Anthropic, or DeepSeek.
 - **HTTP client**: `httpx.AsyncClient` with `ASGITransport` for FastAPI app testing, database and Redis dependencies overridden via `app.dependency_overrides`.
 - **Async**: `asyncio_mode = "auto"` — no `@pytest.mark.asyncio` decorators needed.
 - **Warnings**: pytest filters known external `slowapi` deprecations (`python_multipart` pending deprecation and Python `cgi` deprecation) so the suite output stays focused on project warnings.
@@ -68,22 +68,24 @@ All tests pass on every push. Backend coverage threshold configured at 70%, last
 - **`frontend/tests/lib/sse.test.ts`** — Covers SSE events fragmented across byte chunks, CRLF framing, malformed-event isolation, and truncated final-event rejection
 - **`frontend/tests/components/MemorySavedToast.test.tsx`** — Covers live-region semantics, automatic dismissal, and timer restart
 - **`test_multi_language.py`** — Lines: —. What it covers: Multi-language isolation, active language switching, language API, onboarding language creation, curriculum dispatch
-- **`test_llm_adapter.py`** — Lines: —. What it covers: LLM adapter: JSON parsing, streaming, 5 exception classes, 4 provider init paths, chat (streaming + non-streaming), Anthropic error mapping, structured output with retry, DeepSeek provider, edge cases (63 tests, 38%→100% coverage)
+- **`test_llm_adapter.py`** — Lines: —. What it covers: LLM adapter: JSON parsing, streaming, 5 exception classes, 5 provider init paths, chat (streaming + non-streaming), Anthropic error mapping, structured output with retry, Gemini and DeepSeek providers, edge cases (64 tests, 38%→100% coverage)
 - **`test_prompts.py`** — Lines: —. What it covers: Centralized prompt builders, regional/native language names, language capability metadata, memory instructions, JSON-only block reuse, language overlays including CJK readiness overlays and aliases
 - **`test_reviews.py`** — Lines: —. What it covers: User reviews: creation, editing, rating validation, duplicate guard, public filtering, admin moderation, permissions, admin email notification on creation
 - **`test_phrasebook.py`** — Lines: 330+. What it covers: Phrasebook API: list categories, by-level filtering, category detail, language switching, auth, error cases, Japanese/Korean/Mainland Chinese data resolution, and native-help generation/cache refresh.
 - **`test_quota_service.py`** — Lines: —. What it covers: Quota service: key helpers, quota status, session tracking, daily/weekly minute checks, monthly token tracking, combined quota validation, full session lifecycle (71 tests, 37%→100% coverage)
 - **`test_flashcard_sm2.py`** — Lines: —. What it covers: Flashcard service: `_clean_generated_word`, `_get_lang_hint` (10 languages + fallbacks), native-language name injection, `generate_flashcards`, `lookup_word`
-- **`test_assessment_bank.py`** — Lines: —. What it covers: Assessment bank dispatcher: all 10 backend data languages including Japanese, Korean, and Mainland Chinese, unknown fallback to en-GB, ISO prefix fallback, cache reuse (14 tests, 0%→100% coverage)
+- **`test_assessment_bank.py`** — Lines: —. What it covers: Assessment bank dispatcher for complete backend data languages, unknown fallback to en-GB, ISO prefix fallback, and cache reuse
+- **`test_xhosa_data.py`** — What it covers: A1-only level declaration, curriculum/content inventories, all three assessment skills, complete 14-day unit distribution, and isiXhosa language metadata
+- **`test_provider_config.py`** — What it covers: Neon URL normalization, Groq endpoint/language normalization, and content-addressed isiXhosa TTS caching
 - **`test_limiter.py`** — Lines: —. What it covers: Rate limiter: `_get_real_ip` (X-Real-IP, X-Forwarded-For single/multiple, client host fallback, unknown), limiter construction (9 tests, 42%→100% coverage)
 - **`test_lesson_generator.py`** — Lines: —. What it covers: Lesson generator service: `get_valid_grammar_slugs`, `generate_lesson`, exercise schema validation, fill-blank sanitization, grammar refs filtering, `evaluate_free_write`, `evaluate_pronunciation`, `evaluate_fill_blank` (16 tests, 51%→100% coverage)
 - **`test_listening_service.py`** — Lines: —. What it covers: Listening service DB layer and generation: `structured_output()` generation persistence, language-aware CJK length guidance, `get_available_exercise`, `submit_attempt` (correct/partial/duplicate/replay/not-found), `get_user_history` (empty/attempts/limit/language filter)
 
-**Total: 44 test files, 973 tests.**
+**Total: 46 test files, 984 tests. Last full run: 85.18% coverage.**
 
 ### Coverage
 
-- **Current coverage**: 84.79% last measured (above 70% target)
+- **Current coverage**: 85.18% last measured (above 70% target)
 - **Configured threshold**: 70% (enforced via `pytest --cov-fail-under=70`)
 
 ### Test patterns
@@ -209,7 +211,7 @@ pytest --cov-report=html
 - **`tests/components/DashboardAnnouncement.test.tsx`** — Tests: 3. What it covers: current-locale rendering, successful account-persistent dismissal, compact dismissal error, and suppression of an already-dismissed revision
 - **`tests/i18n/admin-messages.test.ts`** — Tests: 1. What it covers: Admin message bundle integrity
 
-**Total: 446 tests across 41 files. Frontend coverage is not configured/reported.**
+**Total: 449 tests across 41 files. Frontend coverage is not configured/reported.**
 
 ### Running tests
 
@@ -264,7 +266,7 @@ CI runs on GitHub Actions, triggered on pushes and pull requests. The project is
 - Backend tests — Steps: `pytest -v`; Threshold: >= 70% coverage
 - Frontend lint — Steps: `npm run lint`; Threshold: Zero errors
 - Frontend typecheck — Steps: `npx tsc --noEmit`; Threshold: Clean output
-- Frontend tests — Steps: `npm run test:run`; Threshold: All 446 tests pass
+- Frontend tests — Steps: `npm run test:run`; Threshold: All 449 tests pass
 
 **Note**: The backend test job uses SQLite (same as local tests), not PostgreSQL. No Docker services are required for the backend test job.
 
@@ -284,7 +286,7 @@ The `pre-push` opencode skill mirrors CI locally and also auto-formats before ru
 
 ## Testing rules
 
-- **Mock LLM always** — never call Ollama, OpenAI, Anthropic, or DeepSeek in tests
+- **Mock LLM always** — never call Ollama, Gemini, OpenAI, Anthropic, or DeepSeek in tests
 - **Mock Redis always** — use in-memory dict mock, no Redis server needed
 - **In-memory SQLite for backend tests** — fast, isolated, no Docker dependency
 - **Test SM-2 algorithm in isolation** — pure function, no DB needed for the algorithm itself

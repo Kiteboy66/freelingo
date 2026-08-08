@@ -26,6 +26,7 @@ REQUEST_TIMEOUT = 120.0
 
 MAX_CONTEXT_TOKENS = {
     "openai": 128000,
+    "gemini": 1048576,
     "anthropic": 200000,
     "deepseek": 128000,
     "ollama": 8192,
@@ -144,11 +145,15 @@ async def _safe_stream_events(stream: object, provider: str) -> AsyncGenerator:
         raise LLMUnavailableError(f"{provider} rate limit exceeded") from exc
     except _anthropic.APIStatusError as exc:
         if _is_tools_unsupported_error(exc):
-            raise LLMToolsUnsupportedError(f"{provider} does not support tools") from exc
+            raise LLMToolsUnsupportedError(
+                f"{provider} does not support tools"
+            ) from exc
         raise LLMError(f"{provider} streaming error: {exc}") from exc
     except Exception as exc:
         if _is_tools_unsupported_error(exc):
-            raise LLMToolsUnsupportedError(f"{provider} does not support tools") from exc
+            raise LLMToolsUnsupportedError(
+                f"{provider} does not support tools"
+            ) from exc
         message = str(exc)
         if "connection" in message.lower():
             raise LLMUnavailableError(f"{provider} is unreachable") from exc
@@ -193,7 +198,10 @@ class LLMStream:
                         self.completion_tokens = ct
                     if tt is not None:
                         self.total_tokens = tt
-                    elif self.prompt_tokens is not None and self.completion_tokens is not None:
+                    elif (
+                        self.prompt_tokens is not None
+                        and self.completion_tokens is not None
+                    ):
                         self.total_tokens = self.prompt_tokens + self.completion_tokens
             except Exception:
                 pass
@@ -226,7 +234,9 @@ class AnthropicLLMStream(LLMStream):
                     if text:
                         yield text
         if self.prompt_tokens is not None or self.completion_tokens is not None:
-            self.total_tokens = (self.prompt_tokens or 0) + (self.completion_tokens or 0)
+            self.total_tokens = (self.prompt_tokens or 0) + (
+                self.completion_tokens or 0
+            )
 
 
 class LLMToolStream(LLMStream):
@@ -261,7 +271,9 @@ class LLMToolStream(LLMStream):
         if completion is not None:
             self.completion_tokens = (self.completion_tokens or 0) + completion
         if self.prompt_tokens is not None or self.completion_tokens is not None:
-            self.total_tokens = (self.prompt_tokens or 0) + (self.completion_tokens or 0)
+            self.total_tokens = (self.prompt_tokens or 0) + (
+                self.completion_tokens or 0
+            )
 
     async def _provider_text_and_calls(
         self, stream: object, *, collect_calls: bool
@@ -288,7 +300,9 @@ class LLMToolStream(LLMStream):
                             calls[index] = {
                                 "id": str(getattr(block, "id", f"tool_{index}")),
                                 "name": str(getattr(block, "name", "")),
-                                "arguments": json.dumps(initial_input) if initial_input else "",
+                                "arguments": (
+                                    json.dumps(initial_input) if initial_input else ""
+                                ),
                             }
                     elif event_type == "content_block_delta":
                         delta = getattr(event, "delta", None)
@@ -532,6 +546,12 @@ class LLMAdapter:
         elif self.provider == "openai":
             self.client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
             self.model = settings.OPENAI_MODEL
+        elif self.provider == "gemini":
+            self.client = AsyncOpenAI(
+                base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+                api_key=settings.GEMINI_API_KEY,
+            )
+            self.model = settings.GEMINI_MODEL
         elif self.provider == "deepseek":
             self.client = AsyncOpenAI(
                 base_url="https://api.deepseek.com/v1",
@@ -548,23 +568,31 @@ class LLMAdapter:
             self.client = None
             self.model = settings.ANTHROPIC_MODEL
 
-    async def _call_with_retry(self, fn, *args, tools_requested: bool = False, **kwargs):
+    async def _call_with_retry(
+        self, fn, *args, tools_requested: bool = False, **kwargs
+    ):
         last_error = None
         for attempt in range(MAX_RETRIES + 1):
             try:
                 return await fn(*args, **kwargs)
             except LLMError as e:
                 if tools_requested and _is_tools_unsupported_error(e):
-                    raise LLMToolsUnsupportedError(f"{self.provider} does not support tools") from e
+                    raise LLMToolsUnsupportedError(
+                        f"{self.provider} does not support tools"
+                    ) from e
                 # Already a typed LLM error raised by a provider-specific
                 # handler (e.g. _anthropic_chat). Preserve the type instead of
                 # re-wrapping into a generic LLMError.
                 last_error = e
             except TimeoutError:
-                last_error = LLMTimeoutError(f"{self.provider} timed out after {REQUEST_TIMEOUT}s")
+                last_error = LLMTimeoutError(
+                    f"{self.provider} timed out after {REQUEST_TIMEOUT}s"
+                )
             except Exception as e:
                 if tools_requested and _is_tools_unsupported_error(e):
-                    raise LLMToolsUnsupportedError(f"{self.provider} does not support tools") from e
+                    raise LLMToolsUnsupportedError(
+                        f"{self.provider} does not support tools"
+                    ) from e
                 error_msg = str(e)
                 if "connection" in error_msg.lower():
                     last_error = LLMUnavailableError(
@@ -595,7 +623,9 @@ class LLMAdapter:
             raise ValueError("Native tools require streaming and a tool executor")
         tools_unsupported = False
         using_fallback = False
-        messages_without_tools = fallback_messages if fallback_messages is not None else messages
+        messages_without_tools = (
+            fallback_messages if fallback_messages is not None else messages
+        )
         try:
             result = await self._call_with_retry(
                 self._do_chat,
@@ -665,11 +695,11 @@ class LLMAdapter:
         if self.provider == "anthropic":
             return await self._anthropic_chat(messages, stream, tools)
 
-        # For Ollama, OpenAI and DeepSeek (all OpenAI-compatible):
+        # For Ollama, OpenAI, Gemini and DeepSeek (all OpenAI-compatible):
         # pass stream_options so the final chunk includes token usage.
         # Defensively build kwargs to stay compatible with older SDK versions.
         extra: dict = {}
-        if stream:
+        if stream and self.provider != "gemini":
             extra["stream_options"] = {"include_usage": True}
         if tools:
             extra["tools"] = [
@@ -716,7 +746,9 @@ class LLMAdapter:
             return "none"
         return None
 
-    async def structured_output(self, messages: list[dict], schema: type[BaseModel]) -> BaseModel:
+    async def structured_output(
+        self, messages: list[dict], schema: type[BaseModel]
+    ) -> BaseModel:
         # Use JSON mode for all providers — more reliable across versions
         return await self._structured_via_json(messages, schema)
 
@@ -873,13 +905,17 @@ class LLMAdapter:
         try:
             response = await self._anthropic.messages.create(**kwargs)
         except _anthropic.APITimeoutError as e:
-            raise LLMTimeoutError(f"anthropic timed out after {REQUEST_TIMEOUT}s") from e
+            raise LLMTimeoutError(
+                f"anthropic timed out after {REQUEST_TIMEOUT}s"
+            ) from e
         except _anthropic.APIConnectionError as e:
             raise LLMUnavailableError(
                 "anthropic is unreachable. Check that the service is running."
             ) from e
         except _anthropic.RateLimitError as e:
-            raise LLMUnavailableError("anthropic rate limit exceeded. Try again later.") from e
+            raise LLMUnavailableError(
+                "anthropic rate limit exceeded. Try again later."
+            ) from e
         except _anthropic.APIStatusError as e:
             raise LLMError(f"anthropic error: {e}") from e
 

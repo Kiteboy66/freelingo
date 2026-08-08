@@ -270,7 +270,9 @@ class TestExceptions:
 class TestLLMAdapterInit:
     def test_ollama_provider(self, monkeypatch):
         monkeypatch.setattr("app.core.config.settings.LLM_PROVIDER", "ollama")
-        monkeypatch.setattr("app.core.config.settings.OLLAMA_BASE_URL", "http://localhost:11434")
+        monkeypatch.setattr(
+            "app.core.config.settings.OLLAMA_BASE_URL", "http://localhost:11434"
+        )
         monkeypatch.setattr("app.core.config.settings.OLLAMA_MODEL", "llama3")
 
         from app.services.llm_adapter import LLMAdapter
@@ -292,6 +294,22 @@ class TestLLMAdapterInit:
         assert adapter.model == "gpt-4o-mini"
         assert adapter.client is not None
 
+    def test_gemini_provider(self, monkeypatch):
+        monkeypatch.setattr("app.core.config.settings.LLM_PROVIDER", "gemini")
+        monkeypatch.setattr("app.core.config.settings.GEMINI_API_KEY", "gemini-test")
+        monkeypatch.setattr(
+            "app.core.config.settings.GEMINI_MODEL", "gemini-3.5-flash-lite"
+        )
+
+        from app.services.llm_adapter import LLMAdapter
+
+        adapter = LLMAdapter()
+        assert adapter.provider == "gemini"
+        assert adapter.model == "gemini-3.5-flash-lite"
+        assert str(adapter.client.base_url) == (
+            "https://generativelanguage.googleapis.com/v1beta/openai/"
+        )
+
     def test_deepseek_provider(self, monkeypatch):
         monkeypatch.setattr("app.core.config.settings.LLM_PROVIDER", "deepseek")
         monkeypatch.setattr("app.core.config.settings.DEEPSEEK_API_KEY", "sk-ds")
@@ -307,7 +325,9 @@ class TestLLMAdapterInit:
     def test_anthropic_provider(self, monkeypatch):
         monkeypatch.setattr("app.core.config.settings.LLM_PROVIDER", "anthropic")
         monkeypatch.setattr("app.core.config.settings.ANTHROPIC_API_KEY", "sk-ant-test")
-        monkeypatch.setattr("app.core.config.settings.ANTHROPIC_MODEL", "claude-3-5-haiku-latest")
+        monkeypatch.setattr(
+            "app.core.config.settings.ANTHROPIC_MODEL", "claude-3-5-haiku-latest"
+        )
 
         from app.services.llm_adapter import LLMAdapter
 
@@ -324,7 +344,9 @@ class TestLLMAdapterInit:
 
 def _make_ollama_settings(monkeypatch):
     monkeypatch.setattr("app.core.config.settings.LLM_PROVIDER", "ollama")
-    monkeypatch.setattr("app.core.config.settings.OLLAMA_BASE_URL", "http://localhost:11434")
+    monkeypatch.setattr(
+        "app.core.config.settings.OLLAMA_BASE_URL", "http://localhost:11434"
+    )
     monkeypatch.setattr("app.core.config.settings.OLLAMA_MODEL", "llama3")
 
 
@@ -463,7 +485,9 @@ class TestChatStreaming:
             new_callable=AsyncMock,
         ) as mock_create:
             mock_create.return_value = MagicMock()  # raw OpenAI stream
-            result = await adapter.chat([{"role": "user", "content": "Hi"}], stream=True)
+            result = await adapter.chat(
+                [{"role": "user", "content": "Hi"}], stream=True
+            )
             assert isinstance(result, LLMStream)
 
     @pytest.mark.asyncio
@@ -509,7 +533,9 @@ class TestChatStreaming:
 def _make_anthropic_settings(monkeypatch):
     monkeypatch.setattr("app.core.config.settings.LLM_PROVIDER", "anthropic")
     monkeypatch.setattr("app.core.config.settings.ANTHROPIC_API_KEY", "sk-ant-test")
-    monkeypatch.setattr("app.core.config.settings.ANTHROPIC_MODEL", "claude-3-5-haiku-latest")
+    monkeypatch.setattr(
+        "app.core.config.settings.ANTHROPIC_MODEL", "claude-3-5-haiku-latest"
+    )
 
 
 class TestAnthropicChat:
@@ -588,7 +614,9 @@ class TestAnthropicChat:
             new_callable=AsyncMock,
             return_value=resp,
         ):
-            result = await adapter.chat([{"role": "user", "content": "Hi"}], stream=True)
+            result = await adapter.chat(
+                [{"role": "user", "content": "Hi"}], stream=True
+            )
             assert isinstance(result, LLMStream)
 
     @pytest.mark.asyncio
@@ -710,7 +738,9 @@ class TestAnthropicErrorMapping:
             adapter._anthropic.messages,
             "create",
             new_callable=AsyncMock,
-            side_effect=_anthropic.APIConnectionError(message="connection refused", request=req),
+            side_effect=_anthropic.APIConnectionError(
+                message="connection refused", request=req
+            ),
         ):
             with pytest.raises(LLMUnavailableError, match="unreachable"):
                 await adapter.chat([{"role": "user", "content": "Hi"}])
@@ -731,7 +761,9 @@ class TestAnthropicErrorMapping:
             adapter._anthropic.messages,
             "create",
             new_callable=AsyncMock,
-            side_effect=_anthropic.RateLimitError("rate limited", response=resp, body=None),
+            side_effect=_anthropic.RateLimitError(
+                "rate limited", response=resp, body=None
+            ),
         ):
             with pytest.raises(LLMUnavailableError, match="rate limit"):
                 await adapter.chat([{"role": "user", "content": "Hi"}])
@@ -752,7 +784,9 @@ class TestAnthropicErrorMapping:
             adapter._anthropic.messages,
             "create",
             new_callable=AsyncMock,
-            side_effect=_anthropic.APIStatusError("server error", response=resp, body=None),
+            side_effect=_anthropic.APIStatusError(
+                "server error", response=resp, body=None
+            ),
         ):
             with pytest.raises(LLMError, match="anthropic error"):
                 await adapter.chat([{"role": "user", "content": "Hi"}])
@@ -885,7 +919,9 @@ class TestCallWithRetry:
             adapter._anthropic.messages,
             "create",
             new_callable=AsyncMock,
-            side_effect=_anthropic.RateLimitError("rate limited", response=resp, body=None),
+            side_effect=_anthropic.RateLimitError(
+                "rate limited", response=resp, body=None
+            ),
         ):
             with pytest.raises(LLMUnavailableError, match="rate limit"):
                 await adapter.chat([{"role": "user", "content": "Hi"}])
@@ -1027,7 +1063,9 @@ class TestStructuredOutput:
             new_callable=AsyncMock,
             return_value=resp,
         ):
-            with pytest.raises(LLMResponseError, match="Failed to parse JSON after retry"):
+            with pytest.raises(
+                LLMResponseError, match="Failed to parse JSON after retry"
+            ):
                 await adapter.structured_output(
                     [{"role": "user", "content": "test"}],
                     FakeSchema,
@@ -1476,9 +1514,16 @@ class TestNativeToolStreaming:
         assert stream.total_tokens == 8
 
     @pytest.mark.asyncio
-    async def test_unknown_tool_request_failure_falls_back_without_tools(self, monkeypatch):
+    async def test_unknown_tool_request_failure_falls_back_without_tools(
+        self, monkeypatch
+    ):
         _make_ollama_settings(monkeypatch)
-        from app.services.llm_adapter import LLMAdapter, LLMError, LLMTool, LLMToolResult
+        from app.services.llm_adapter import (
+            LLMAdapter,
+            LLMError,
+            LLMTool,
+            LLMToolResult,
+        )
 
         async def fallback_stream():
             yield FakeOpenAIChunk("Normal response.")
@@ -1494,7 +1539,10 @@ class TestNativeToolStreaming:
             adapter,
             "_call_with_retry",
             new_callable=AsyncMock,
-            side_effect=[LLMError("unexpected tool request failure"), fallback_stream()],
+            side_effect=[
+                LLMError("unexpected tool request failure"),
+                fallback_stream(),
+            ],
         ) as call:
             stream = await adapter.chat(
                 [{"role": "user", "content": "Hi"}],
@@ -1512,7 +1560,9 @@ class TestNativeToolStreaming:
         assert call.call_args_list[1].args[1] == fallback_messages
 
     @pytest.mark.asyncio
-    async def test_tool_stream_failure_before_text_falls_back_without_tools(self, monkeypatch):
+    async def test_tool_stream_failure_before_text_falls_back_without_tools(
+        self, monkeypatch
+    ):
         _make_ollama_settings(monkeypatch)
         from app.services.llm_adapter import LLMAdapter, LLMTool, LLMToolResult
 
@@ -1563,7 +1613,9 @@ class TestNativeToolStreaming:
             LLMToolResultEvent,
         )
 
-        def tool_chunk(arguments: str, *, tool_id: str | None = None, name: str | None = None):
+        def tool_chunk(
+            arguments: str, *, tool_id: str | None = None, name: str | None = None
+        ):
             function = SimpleNamespace(name=name, arguments=arguments)
             tool_call = SimpleNamespace(index=0, id=tool_id, function=function)
             delta = SimpleNamespace(content=None, tool_calls=[tool_call])
@@ -1571,7 +1623,9 @@ class TestNativeToolStreaming:
 
         async def initial_stream():
             yield FakeOpenAIChunk("Sure. ")
-            yield tool_chunk('{"content":"Likes ', tool_id="call_1", name="save_user_memory")
+            yield tool_chunk(
+                '{"content":"Likes ', tool_id="call_1", name="save_user_memory"
+            )
             yield tool_chunk('hiking"}')
             yield FakeOpenAIChunk(None, usage=FakeUsage(10, 3))
 
@@ -1611,7 +1665,10 @@ class TestNativeToolStreaming:
             result_event = await asyncio.wait_for(anext(iterator), timeout=0.1)
             assert isinstance(result_event, LLMToolResultEvent)
             assert result_event.result.content == {"saved": True}
-            assert await asyncio.wait_for(anext(iterator), timeout=0.1) == "I will remember that."
+            assert (
+                await asyncio.wait_for(anext(iterator), timeout=0.1)
+                == "I will remember that."
+            )
             release_continuation.set()
             assert [part async for part in iterator] == [" Thanks."]
 
@@ -1627,7 +1684,10 @@ class TestNativeToolStreaming:
         assert continuation[-1]["role"] == "tool"
         adapter._log_native_tools_available()
         assert (
-            caplog.text.count("Native tools available for provider=openai model=gpt-5.6-luna") == 1
+            caplog.text.count(
+                "Native tools available for provider=openai model=gpt-5.6-luna"
+            )
+            == 1
         )
 
     @pytest.mark.asyncio
@@ -1703,7 +1763,9 @@ class TestNativeToolStreaming:
         assert continuation[-1]["content"][0]["type"] == "tool_result"
 
     @pytest.mark.asyncio
-    async def test_tool_continuation_failure_falls_back_without_tools(self, monkeypatch):
+    async def test_tool_continuation_failure_falls_back_without_tools(
+        self, monkeypatch
+    ):
         _make_ollama_settings(monkeypatch)
         from app.services.llm_adapter import (
             LLMAdapter,
@@ -1714,7 +1776,9 @@ class TestNativeToolStreaming:
 
         def tool_chunk(index: int, content: str):
             function = SimpleNamespace(name="save_user_memory", arguments=content)
-            tool_call = SimpleNamespace(index=index, id=f"call_{index}", function=function)
+            tool_call = SimpleNamespace(
+                index=index, id=f"call_{index}", function=function
+            )
             delta = SimpleNamespace(content=None, tool_calls=[tool_call])
             return SimpleNamespace(choices=[SimpleNamespace(delta=delta)], usage=None)
 
@@ -1774,9 +1838,13 @@ class TestNativeToolStreaming:
                     name="save_user_memory",
                     arguments=f'{{"content":"Fact {index}"}}',
                 )
-                tool_call = SimpleNamespace(index=index, id=f"call_{index}", function=function)
+                tool_call = SimpleNamespace(
+                    index=index, id=f"call_{index}", function=function
+                )
                 delta = SimpleNamespace(content=None, tool_calls=[tool_call])
-                yield SimpleNamespace(choices=[SimpleNamespace(delta=delta)], usage=None)
+                yield SimpleNamespace(
+                    choices=[SimpleNamespace(delta=delta)], usage=None
+                )
 
         async def continuation_stream():
             yield FakeOpenAIChunk("Understood.")
@@ -1824,7 +1892,9 @@ class TestNativeToolStreaming:
             await adapter.chat([], tools=[tool])
 
     @pytest.mark.asyncio
-    async def test_tool_continuation_failure_after_text_resets_and_falls_back(self, monkeypatch):
+    async def test_tool_continuation_failure_after_text_resets_and_falls_back(
+        self, monkeypatch
+    ):
         _make_ollama_settings(monkeypatch)
         from app.services.llm_adapter import (
             LLMAdapter,

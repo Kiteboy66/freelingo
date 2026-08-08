@@ -395,6 +395,8 @@ When adding a new target language in the future (e.g. Italian `it-IT`), the foll
 
 > **TTS note**: Kokoro FastAPI ships with English voices only. Adding a non-English target language requires verifying that the selected TTS service supports the target language's voice synthesis, and updating `TTS_VOICE` configuration or adding per-language voice mapping in `tts_service.py`.
 
+> **Current isiXhosa implementation**: `xh-ZA` is a level-limited A1 pack. Local speech is mapped by language code to `XHOSA_SPEECH_BASE_URL`, using Simba TTS and Swivuriso STT. Placement and plan creation derive supported CEFR levels from actual data, so isiXhosa cannot select or unlock empty A2–C2 plans.
+
 ---
 
 ## Auth flow comparison

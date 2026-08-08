@@ -85,6 +85,18 @@ async def create_study_plan(
             active_lang.target_language if active_lang else current_user.target_language
         )
 
+    from app.data.curriculum import get_supported_cefr_levels  # noqa: PLC0415
+
+    supported_levels = get_supported_cefr_levels(resolved_language)
+    if data.cefr_level not in supported_levels:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"{resolved_language} has content for: "
+                f"{', '.join(supported_levels) or 'no CEFR levels'}"
+            ),
+        )
+
     # Ensure a UserLanguage row exists for this language (creates one inactive if missing)
     user_lang = await ensure_user_language(db, current_user.id, resolved_language)
 

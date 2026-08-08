@@ -1,3 +1,4 @@
+import hashlib
 import os
 import time
 import uuid
@@ -16,7 +17,6 @@ from app.services.prompts.common import TUTOR_DISPLAY_NAME
 router = APIRouter(prefix="/api", tags=["tts"])
 logger = get_logger(__name__)
 
-_PREVIEW_DIR = "/app/tts_previews"
 _OPENAI_VOICES = frozenset(
     {"alloy", "ash", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer"}
 )
@@ -49,7 +49,26 @@ async def text_to_speech(
     # should be forwarded. Prevents 400 errors when user switches from OpenAI
     # to local and stale OpenAI voice names (e.g. "nova") remain in localStorage.
     voice = body.voice if settings.TTS_PROVIDER != "local" else None
-    audio = await tts_service.synthesize(body.text, voice)
+    cache_path: str | None = None
+    language_code = (body.language or "").lower().split("-")[0]
+    if settings.TTS_CACHE_ENABLED and language_code == "xh":
+        cache_key = hashlib.sha256(
+            f"{body.language}:{voice or ''}:{body.text}".encode()
+        ).hexdigest()[:24]
+        cache_dir = os.path.join(settings.AUDIO_STORAGE_PATH, "tts", "xh")
+        cache_path = os.path.join(cache_dir, f"{cache_key}.mp3")
+
+    if cache_path and os.path.isfile(cache_path):
+        with open(cache_path, "rb") as audio_file:  # noqa: PTH123
+            audio = audio_file.read()
+    else:
+        audio = await tts_service.synthesize(body.text, voice, body.language)
+        if cache_path and audio:
+            os.makedirs(os.path.dirname(cache_path), exist_ok=True)
+            tmp_path = f"{cache_path}.{uuid.uuid4().hex}.tmp"
+            with open(tmp_path, "wb") as audio_file:  # noqa: PTH123
+                audio_file.write(audio)
+            os.replace(tmp_path, cache_path)
     synth_ms = (time.perf_counter() - synth_t0) * 1000
     total_ms = (time.perf_counter() - t0) * 1000
 
@@ -95,7 +114,9 @@ async def voice_preview(
         )
 
     if voice not in _OPENAI_VOICES:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid voice name")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid voice name"
+        )
 
     tts_service = getattr(request.app.state, "tts_service", None)
     if tts_service is None:
@@ -104,10 +125,10 @@ async def voice_preview(
             detail="TTS service is not enabled",
         )
 
-    cache_path = os.path.join(_PREVIEW_DIR, f"{voice}.mp3")
+    cache_path = os.path.join(settings.TTS_PREVIEW_STORAGE_PATH, f"{voice}.mp3")
 
     if not os.path.exists(cache_path):
-        os.makedirs(_PREVIEW_DIR, exist_ok=True)
+        os.makedirs(settings.TTS_PREVIEW_STORAGE_PATH, exist_ok=True)
         audio = await tts_service.synthesize(_PREVIEW_TEXT, voice)
         # Write atomically via a temp file to avoid partial reads
         tmp_path = cache_path + ".tmp"

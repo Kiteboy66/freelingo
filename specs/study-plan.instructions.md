@@ -35,8 +35,8 @@ One active plan per user. See `backend/app/models/study_plan.py`.
 - cefr_level — Type: string; Notes: A1–C2
 - target_language — Type: string; Notes: BCP-47 tag copied from user at creation
 - goals — Type: JSON; Notes: `["grammar", "vocabulary", ...]`
-- duration_weeks — Type: integer; Notes: 4 / 8 / 12 / 16
-- days_per_week — Type: integer; Notes: 5 / 5 / 4 / 3 (derived from intensity)
+- duration_weeks — Type: integer; Notes: 2 / 4 / 8 / 12 / 16
+- days_per_week — Type: integer; Notes: 7 / 5 / 5 / 4 / 3 (derived from intensity)
 - current_unit — Type: string; Notes: Curriculum unit ID of the last active unit
 - **progress_day** — Type: **integer**; Notes: **0-indexed count of completed days (see below). Default 0.**
 - generated_plan — Type: JSON; Notes: Full week/day grid (see Plan JSON structure)
@@ -111,11 +111,13 @@ Exercises belong to a lesson (1:N). Generated alongside the lesson and stored in
 Plan generation is **fully deterministic** — no LLM call. The service:
 
 1. Fetches curriculum units for the requested CEFR level from `backend/app/data/curriculum.py`.
-2. Calls `distribute_units()` to spread units across the total weeks × days grid.
+2. Calls `distribute_units()` to spread units proportionally across the total weeks × days grid, ensuring every unit appears whenever the plan has at least as many learning slots as units.
 3. Builds a list of `WeekPlan` objects, each containing a list of `DayPlan` objects.
 4. Returns a `GeneratedPlan` Pydantic model, which is stored as JSON in `study_plans.generated_plan`.
 
-Current backend curriculum modules cover `en-GB`, `en-US`, `de-DE`, `es-ES`, `fr-FR`, `it-IT`, `pt-PT`, `ja-JP`, `ko-KR`, and `zh-CN`. Japanese plans use Japanese unit titles and templates such as `文字とあいさつ - レッスン 1`; Korean plans use Korean unit titles and templates such as `한글과 기본 인사 - 레슨 1`; Mainland Chinese plans use Simplified Chinese unit titles and templates such as `拼音、声调和问候 - 第 1 课`. Japanese, Korean, and Mainland Chinese curricula include `listening` lesson slots from A2 through C2, matching the platform's voice/listening practice model while keeping A1 focused on fundamentals.
+Current backend curriculum modules cover `en-GB`, `en-US`, `de-DE`, `es-ES`, `fr-FR`, `it-IT`, `pt-PT`, `ja-JP`, `ko-KR`, `zh-CN`, and the A1-only isiXhosa (`xh-ZA`) sprint. Japanese plans use Japanese unit titles and templates such as `文字とあいさつ - レッスン 1`; Korean plans use Korean unit titles and templates such as `한글과 기본 인사 - 레슨 1`; Mainland Chinese plans use Simplified Chinese unit titles and templates such as `拼音、声调和问候 - 第 1 课`. The isiXhosa two-week plan uses 13 practice slots plus a final conversation check and rejects A2–C2 plan creation until those levels have content.
+
+Plan creation validates `cefr_level` against `get_supported_cefr_levels(target_language)` before deactivating an existing plan. Completion-test progression uses `get_next_supported_cefr_level()` so a high score never points to an absent level.
 
 ### Plan JSON structure (`generated_plan`)
 

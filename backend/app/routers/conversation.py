@@ -94,6 +94,7 @@ async def _check_voice_access(
 
 class ConversationWarmupRequest(BaseModel):
     trial_token: str | None = None
+    target_language: str = "en-GB"
 
 
 def _make_silence_wav(duration_ms: int = 100, sample_rate: int = 16000) -> bytes:
@@ -147,17 +148,18 @@ async def conversation_warmup(
     stt_service = getattr(request.app.state, "stt_service", None)
 
     tasks = []
+    target_language = data.target_language if data else "en-GB"
     if tts_service:
-        tasks.append(_warmup_tts(tts_service))
+        tasks.append(_warmup_tts(tts_service, target_language))
     if stt_service:
-        tasks.append(_warmup_stt(stt_service))
+        tasks.append(_warmup_stt(stt_service, target_language))
     if tasks:
         await asyncio.gather(*tasks)
 
     return JSONResponse({"status": "ready"})
 
 
-async def _warmup_tts(tts_service: object) -> None:
+async def _warmup_tts(tts_service: object, language: str = "en-GB") -> None:
     try:
         # OpenAI TTS warmup is just a lightweight model check; calling health
         # avoids a full synthesis request during session start.
@@ -166,16 +168,19 @@ async def _warmup_tts(tts_service: object) -> None:
         else:
             # Local Kokoro benefits from a real synthesis once to warm model
             # caches on first use.
-            await tts_service.synthesize("ready")  # type: ignore[union-attr]
+            warmup_text = "Ndilungile" if language.lower().startswith("xh") else "ready"
+            await tts_service.synthesize(warmup_text, language=language)  # type: ignore[union-attr]
         logger.info("[warmup] TTS ready")
     except Exception as exc:
         logger.warning("[warmup] TTS warmup error: %s", exc)
 
 
-async def _warmup_stt(stt_service: object) -> None:
+async def _warmup_stt(stt_service: object, language: str = "en-GB") -> None:
     try:
         wav = _make_silence_wav()
-        await stt_service.transcribe(wav, "warmup.wav", "audio/wav")  # type: ignore[union-attr]
+        await stt_service.transcribe(  # type: ignore[union-attr]
+            wav, "warmup.wav", "audio/wav", language
+        )
         logger.info("[warmup] STT ready")
     except Exception as exc:
         logger.warning("[warmup] STT warmup error: %s", exc)

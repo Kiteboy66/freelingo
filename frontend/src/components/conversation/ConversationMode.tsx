@@ -894,15 +894,17 @@ export default function ConversationMode({
 
     const warmupResponsePromise = apiFetch('/api/conversation/warmup', {
       method: 'POST',
-      ...(voiceTrialToken
-        ? {
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ trial_token: voiceTrialToken }),
-          }
-        : {}),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        trial_token: voiceTrialToken,
+        target_language: targetLanguage ?? 'en-GB',
+      }),
     })
+    const warmupTimeoutMs = targetLanguage?.toLowerCase().startsWith('xh')
+      ? 300_000
+      : 15_000
     const warmupTimeout = new Promise<Response>((_, reject) => {
-      setTimeout(() => reject(new Error('warmup timeout')), 15_000)
+      setTimeout(() => reject(new Error('warmup timeout')), warmupTimeoutMs)
     })
     let warmupResponse: Response
     try {

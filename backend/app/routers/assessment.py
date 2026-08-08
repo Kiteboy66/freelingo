@@ -412,6 +412,18 @@ async def complete_assessment(
         # The session's target_language is the most authoritative source when present
         target_language = session.get("target_language", target_language)
 
+    from app.data.curriculum import get_supported_cefr_levels  # noqa: PLC0415
+
+    supported_levels = get_supported_cefr_levels(target_language)
+    if data.cefr_level not in supported_levels:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"{target_language} has content for: "
+                f"{', '.join(supported_levels) or 'no CEFR levels'}"
+            ),
+        )
+
     # Ensure a UserLanguage row exists for this language
     user_lang = await ensure_user_language(db, current_user_id, target_language)
 
@@ -614,10 +626,9 @@ async def submit_level_test(
     else:
         recommendation = "repeat"
 
-    from app.data.curriculum import CEFR_LEVELS  # noqa: PLC0415
+    from app.data.curriculum import get_next_supported_cefr_level  # noqa: PLC0415
 
-    current_idx = CEFR_LEVELS.index(plan.cefr_level) if plan.cefr_level in CEFR_LEVELS else 0
-    next_level = CEFR_LEVELS[current_idx + 1] if current_idx + 1 < len(CEFR_LEVELS) else None
+    next_level = get_next_supported_cefr_level(plan.cefr_level, plan.target_language)
 
     plan.completion_test_taken = True
     plan.completion_test_score = score
@@ -654,10 +665,9 @@ async def get_level_test_result(
             status_code=status.HTTP_404_NOT_FOUND, detail="Level test result not found."
         )
 
-    from app.data.curriculum import CEFR_LEVELS  # noqa: PLC0415
+    from app.data.curriculum import get_next_supported_cefr_level  # noqa: PLC0415
 
-    current_idx = CEFR_LEVELS.index(plan.cefr_level) if plan.cefr_level in CEFR_LEVELS else 0
-    next_level = CEFR_LEVELS[current_idx + 1] if current_idx + 1 < len(CEFR_LEVELS) else None
+    next_level = get_next_supported_cefr_level(plan.cefr_level, plan.target_language)
 
     return LevelTestResult(
         score=plan.completion_test_score or 0.0,

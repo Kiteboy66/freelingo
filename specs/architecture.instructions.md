@@ -20,14 +20,15 @@ freelingo/
 │   │   ├── schemas/             # Pydantic v2 request/response schemas (20 modules)
 │   │   ├── routers/             # 28 router modules; conversation also exposes the voice WebSocket
 │   │   ├── services/            # Business logic + external service clients (21 modules + prompts package)
-│   │   └── data/                # Static curriculum and content data (9 language modules)
+│   │   └── data/                # Static curriculum and content data (11 target-language variants)
 │   │       ├── en/              # English curriculum (A1–C2)
 │   │       ├── es/              # Spanish curriculum (A1–C2)
 │   │       ├── it/              # Italian curriculum (A1–C2)
-│   │       └── pt/              # Portuguese curriculum (A1–C2)
+│   │       ├── pt/              # Portuguese curriculum (A1–C2)
+│   │       └── xh/              # isiXhosa conversation sprint (A1 only)
 │   ├── alembic/
 │   │   └── versions/            # DB migrations (50)
-│   └── tests/                   # pytest suite (44 test files, 973 tests)
+│   └── tests/                   # pytest suite (46 test files, 984 tests)
 │
 ├── frontend/                    # Next.js 16 App Router
 │   ├── src/
@@ -63,11 +64,12 @@ freelingo/
 │   │   ├── lib/                 # Shared API, media, locale, mapping, review, billing, and language utilities (11)
 │   │   ├── i18n/                # next-intl locale resolver
 │   │   └── middleware.ts        # Auth guard + locale detection
-│   ├── tests/                   # Vitest suite (41 test files, 446 tests)
+│   ├── tests/                   # Vitest suite (41 test files, 449 tests)
 │   ├── public/                  # Static assets (flags/, vad/ WASM models)
 │   └── scripts/                 # Postinstall helpers (copy-vad-models.js)
 │
 ├── messages/                    # i18n bundles (en, es, fr, pt, de, it, nl, pl, ro, ru)
+├── speech/                      # Local isiXhosa Simba TTS + Swivuriso STT service
 ├── specs/                       # Architecture and phase specification files
 ├── docs/                        # Documentation site
 ├── assets/                      # Logo and branding
@@ -179,6 +181,6 @@ Testing infrastructure and strategy are documented in [testing.instructions.md](
 
 **Summary:**
 
-- **Backend**: pytest + pytest-asyncio, 44 test files, 973 tests, 84.79% last measured coverage (target: 70%)
-- **Frontend**: Vitest, 41 test files, 446 tests covering stores, components, hooks, lib, i18n, app pages, dashboard announcements, billing paywall UI, billing success verification, feedback unread labels, SSE parsing, memory toasts, chat stream resets, and middleware; coverage is not configured/reported
+- **Backend**: pytest + pytest-asyncio, 46 test files, 984 tests, 85.18% last measured coverage (target: 70%)
+- **Frontend**: Vitest, 41 test files, 449 tests covering stores, components, hooks, lib, i18n, app pages, dashboard announcements, billing paywall UI, billing success verification, feedback unread labels, SSE parsing, memory toasts, chat stream resets, and middleware; coverage is not configured/reported
 - **E2E**: Playwright (planned, not yet implemented)

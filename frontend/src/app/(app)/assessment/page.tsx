@@ -80,11 +80,16 @@ function pickNextQuestion(
   return available[Math.floor(Math.random() * available.length)]
 }
 
-function adjustLevel(current: CEFRLevel, direction: 'up' | 'down'): CEFRLevel {
-  const idx = CEFR_LEVELS.indexOf(current)
-  if (direction === 'up' && idx < CEFR_LEVELS.length - 1)
-    return CEFR_LEVELS[idx + 1]
-  if (direction === 'down' && idx > 0) return CEFR_LEVELS[idx - 1]
+function adjustLevel(
+  current: CEFRLevel,
+  direction: 'up' | 'down',
+  availableLevels: CEFRLevel[]
+): CEFRLevel {
+  const idx = availableLevels.indexOf(current)
+  if (idx < 0) return availableLevels[0] ?? 'A1'
+  if (direction === 'up' && idx < availableLevels.length - 1)
+    return availableLevels[idx + 1]
+  if (direction === 'down' && idx > 0) return availableLevels[idx - 1]
   return current
 }
 
@@ -119,7 +124,7 @@ export default function AssessmentPage() {
   const [evaluating, setEvaluating] = useState(false)
 
   const [durationOption, setDurationOption] = useState<DurationOption>(
-    DURATION_OPTIONS[2]
+    DURATION_OPTIONS.find((o) => o.weeks === 12)!
   )
   const [selectedGoals, setSelectedGoals] = useState<string[]>([
     'grammar',
@@ -136,6 +141,19 @@ export default function AssessmentPage() {
   useEffect(() => {
     void loadConfig()
   }, [loadConfig])
+
+  useEffect(() => {
+    const preferredWeeks = activeLanguage?.code === 'xh-ZA' ? 2 : 12
+    const preferred = DURATION_OPTIONS.find((o) => o.weeks === preferredWeeks)
+    if (preferred) setDurationOption(preferred)
+  }, [activeLanguage?.code])
+
+  const assessmentLevels = CEFR_LEVELS.filter((level) =>
+    bank.some((question) => question.difficulty === level)
+  )
+  const quizStartLevel: CEFRLevel = assessmentLevels.includes(START_LEVEL)
+    ? START_LEVEL
+    : (assessmentLevels[0] ?? 'A1')
 
   useEffect(() => {
     async function check() {
@@ -191,10 +209,10 @@ export default function AssessmentPage() {
     }
     usedIds.clear()
     setAnswers([])
-    setCurrentLevel(START_LEVEL)
+    setCurrentLevel(quizStartLevel)
     setCorrectStreak(0)
     setWrongStreak(0)
-    const q = pickNextQuestion(bank, usedIds, START_LEVEL)
+    const q = pickNextQuestion(bank, usedIds, quizStartLevel)
     if (q) {
       usedIds.add(q.id)
       setCurrentQuestion(q)
@@ -224,14 +242,14 @@ export default function AssessmentPage() {
       newCorrect += 1
       newWrong = 0
       if (newCorrect >= CORRECT_STREAK_TO_UP) {
-        newLevel = adjustLevel(currentLevel, 'up')
+        newLevel = adjustLevel(currentLevel, 'up', assessmentLevels)
         newCorrect = 0
       }
     } else {
       newWrong += 1
       newCorrect = 0
       if (newWrong >= WRONG_STREAK_TO_DOWN) {
-        newLevel = adjustLevel(currentLevel, 'down')
+        newLevel = adjustLevel(currentLevel, 'down', assessmentLevels)
         newWrong = 0
       }
     }
@@ -549,7 +567,7 @@ export default function AssessmentPage() {
                 {t('overrideLevel')}
               </p>
               <div className="flex flex-wrap justify-center gap-1">
-                {CEFR_LEVELS.map((lvl) => (
+                {assessmentLevels.map((lvl) => (
                   <button
                     key={lvl}
                     onClick={() => setSelectedLevel(lvl)}

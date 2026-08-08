@@ -61,7 +61,7 @@ Central `Settings` class using pydantic-settings, reading from `.env`. Covers:
 - **Redis**: `REDIS_URL`
 - **JWT**: `SECRET_KEY`, `ACCESS_TOKEN_EXPIRE_MINUTES` (15), `REFRESH_TOKEN_EXPIRE_DAYS` (30)
 - **Registration**: `ALLOW_REGISTRATION`, `FIRST_USER_IS_ADMIN`
-- **LLM**: `LLM_PROVIDER` (ollama/openai/anthropic/deepseek) with per-provider URLs, models, and API keys
+- **LLM**: `LLM_PROVIDER` (ollama/gemini/openai/anthropic/deepseek) with per-provider URLs, models, and API keys
 - **TTS/STT**: `TTS_ENABLED`, `STT_ENABLED` (both default false), `STT_MODEL`, `STT_ENGINE`
 - **Rate limiting**: `RATE_LIMIT_ENABLED`, `RATE_LIMIT_STORAGE` (memory/redis)
 - **CORS**: `CORS_ORIGINS`
@@ -112,7 +112,7 @@ All require `role="admin"` via `require_admin` dependency.
 
 ### LLM Adapter (`app/services/llm_adapter.py`)
 
-Singleton providing provider-agnostic LLM access. Supports four providers:
+Singleton providing provider-agnostic LLM access. The current adapter supports five providers, including the later-added Gemini OpenAI-compatible path:
 
 - ollama — Client library: AsyncOpenAI (openai SDK via openai-compatible endpoint); Max tokens: 8192
 - openai — Client library: AsyncOpenAI; Max tokens: 128K

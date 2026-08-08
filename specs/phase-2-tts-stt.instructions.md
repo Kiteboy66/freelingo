@@ -6,7 +6,7 @@ description: "Phase 2 specification for FreeLingo: local TTS (Kokoro-FastAPI) an
 
 ## Objective
 
-Add fully local voice synthesis (TTS) and speech recognition (STT) with no external API dependencies. Users can listen to natural-sounding English pronunciation and practice speaking by recording their voice — all processed by self-hosted Docker services behind backend proxies.
+Add fully local voice synthesis (TTS) and speech recognition (STT) with no external API dependencies. English uses Kokoro and Whisper; isiXhosa uses Simba TTS and Swivuriso STT through the combined `xhosa-speech` service. All speech remains behind backend proxies.
 
 ---
 
@@ -25,7 +25,9 @@ Browser                          Backend                      Docker services
 └──────────┘            └──────────────────────┘           └───────────────┘
 ```
 
-The backend acts as the sole gateway — the frontend never calls Kokoro or Whisper directly. Both services are disabled at the application level by default (`TTS_ENABLED=false`, `STT_ENABLED=false`) and must be explicitly enabled in `.env`.
+The backend acts as the sole gateway — the frontend never calls Kokoro, Whisper, Simba, Swivuriso, Groq, or OpenAI directly. `TTS_PROVIDER` selects `local` (default) or `openai`; `STT_PROVIDER` selects `local`, `groq`, or `openai`. The former boolean `TTS_ENABLED` and `STT_ENABLED` flags no longer exist.
+
+For a local `xh` request, `KokoroTTSService` and `WhisperSTTService` route to `XHOSA_SPEECH_BASE_URL`. `speech/app.py` lazy-loads `UBC-NLP/Simba-TTS-xho` for MP3 synthesis and `digiphyte/swivuriso-turbo` for transcription, and caches Hugging Face files in the Compose data path. The default Compose service runs on CPU; automatic CUDA selection works when a GPU is exposed to the container, and direct host runs can use MPS for TTS.
 
 ---
 
@@ -45,20 +47,21 @@ The backend acts as the sole gateway — the frontend never calls Kokoro or Whis
 
 The `TTSService` class wraps the Kokoro HTTP API:
 
-- `synthesize(text, voice)` → returns raw MP3 bytes
+- `synthesize(text, voice, language)` → returns raw MP3 bytes
 - HTTP POST to `{base_url}/v1/audio/speech` with JSON body
-- 30-second timeout
+- 30-second timeout for Kokoro; 300 seconds for a cold isiXhosa model download
 - Raises on non-2xx responses
 
 ### Backend router (`app/routers/tts.py`)
 
 - **Endpoint**: `POST /api/tts`
 - **Rate limit**: 20 requests/minute
-- **Request**: `{ "text": string, "voice": string? }`
+- **Request**: `{ "text": string, "voice": string?, "language": string? }`
 - **Response**: `audio/mpeg` binary content
 - **Auth**: Requires valid access token
-- **Guard**: Returns 503 if `TTS_ENABLED=false`
+- **Guard**: Returns 503 if the configured TTS service is unavailable
 - **Voice preview text**: OpenAI voice previews introduce the AI tutor as Lingu, using the shared `TUTOR_DISPLAY_NAME` prompt constant.
+- **isiXhosa cache**: when `TTS_CACHE_ENABLED=true`, successful `xh`/`xh-ZA` MP3s are content-addressed by text, voice, and language under `AUDIO_STORAGE_PATH/tts/xh`.
 
 ---
 
@@ -79,34 +82,45 @@ The `TTSService` class wraps the Kokoro HTTP API:
 
 The `STTService` class wraps the Whisper HTTP API:
 
-- `transcribe(audio_bytes, filename)` → returns transcribed text string
+- `transcribe(audio_bytes, filename, mime_type, language)` → returns transcribed text string
 - HTTP POST to `POST /asr?output=json&language=en&task=transcribe`
 - Multipart upload with `audio_file` field
-- 60-second timeout
+- 60-second timeout for Whisper; 600 seconds for a cold isiXhosa model download
 - Raises on non-2xx responses
+
+`GroqSTTService` uses Groq's OpenAI-compatible transcription endpoint with `GROQ_STT_MODEL` (default `whisper-large-v3`) and normalizes BCP-47 language values such as `xh-ZA` to `xh`.
 
 ### Backend router (`app/routers/stt.py`)
 
 - **Endpoint**: `POST /api/stt`
 - **Rate limit**: 20 requests/minute
-- **Request**: `multipart/form-data` with `audio` field (binary audio file)
+- **Request**: `multipart/form-data` with `audio` field (binary audio file) and optional `language` ISO code
 - **Response**: `{ "text": string }`
 - **Auth**: Requires valid access token
-- **Guard**: Returns 503 if `STT_ENABLED=false`
+- **Guard**: Returns 503 if the configured STT service is unavailable
 
 ---
 
 ## Environment variables (`.env` additions)
 
-- `TTS_ENABLED` — Default: `false`; Purpose: Enable Kokoro TTS proxy
+- `TTS_PROVIDER` — Default: `local`; Purpose: Select local or OpenAI TTS
 - `TTS_BASE_URL` — Default: `http://kokoro:8880`; Purpose: Kokoro service URL
 - `TTS_VOICE` — Default: `af_heart`; Purpose: Default TTS voice
-- `STT_ENABLED` — Default: `false`; Purpose: Enable Whisper STT proxy
+- `STT_PROVIDER` — Default: `local`; Purpose: Select local, Groq, or OpenAI STT
 - `STT_BASE_URL` — Default: `http://whisper:9000`; Purpose: Whisper service URL
+- `XHOSA_SPEECH_BASE_URL` — Default: `http://xhosa-speech:9100`; Purpose: Simba/Swivuriso service URL
+- `XHOSA_TTS_MODEL` — Default: `UBC-NLP/Simba-TTS-xho`; Purpose: isiXhosa TTS model used by the speech container
+- `XHOSA_STT_MODEL` — Default: `digiphyte/swivuriso-turbo`; Purpose: South African multilingual STT model used by the speech container
+- `XHOSA_SPEECH_DEVICE` — Default: `auto`; Purpose: `auto`, `cpu`, `cuda`, or `mps`
 - `STT_MODEL` — Default: `large-v3-turbo`; Purpose: Whisper model (also: `tiny.en`, `small`, `medium`, `large-v3`)
 - `STT_ENGINE` — Default: `faster_whisper`; Purpose: Inference engine (`faster_whisper` or `ctranslate2`)
+- `GROQ_API_KEY` — Default: empty; Purpose: Authenticate hosted Groq transcription
+- `GROQ_STT_MODEL` — Default: `whisper-large-v3`; Purpose: Groq transcription model
+- `TTS_CACHE_ENABLED` — Default: `true`; Purpose: Reuse persisted isiXhosa pronunciation MP3s
 
-Both `TTS_ENABLED` and `STT_ENABLED` must be `true` for the Phase 3 voice conversation WebSocket to accept connections.
+Voice conversation requires both configured providers to be reachable. isiXhosa local conversation additionally requires `xhosa-speech`.
+
+The Railway speech image is intentionally TTS-only (`SPEECH_STT_ENABLED=false`) and excludes faster-whisper. It pairs Simba with Groq STT, stores Hugging Face model files on `/models/huggingface`, and relies on the backend `/data` volume for generated MP3 caching. The language-aware conversation warmup sends `target_language`; isiXhosa gets a 300-second client timeout for a sleeping or first-download Simba service.
 
 ---
 
@@ -116,7 +130,7 @@ Both `TTS_ENABLED` and `STT_ENABLED` must be `true` for the Phase 3 voice conver
 
 Reusable button component for TTS playback:
 
-- Calls `POST /api/tts` with text and optional voice override
+- Calls `POST /api/tts` with text, active language, and optional voice override
 - Receives `audio/mpeg` binary
 - Plays via browser `Audio` API (`new Audio(blobUrl).play()`)
 - Cleans up `ObjectURL` on playback end
@@ -136,7 +150,7 @@ Reusable button component for STT recording:
 - Records audio using `MediaRecorder` API (codec: `audio/webm`)
 - Maximum recording length: configurable via `maxSeconds` prop (default 5 s for exercises, unlimited for conversation)
 - Stops automatically after max duration
-- Uploads via `POST /api/stt` as multipart/form-data
+- Uploads audio plus the active ISO language via `POST /api/stt` as multipart/form-data
 - Returns transcribed text to parent component
 - Shows recording indicator (animated red dot)
 
@@ -215,6 +229,7 @@ The `deploy` block must be removed entirely on CPU hosts — Docker will error i
 - [x] Pronunciation recording and evaluation operational
 - [x] Flashcard speaking mode functional
 - [x] Frontend API proxies handle binary and multipart correctly
-- [x] `TTS_ENABLED` and `STT_ENABLED` guard endpoints (503 when disabled)
+- [x] Provider availability guards return 503 when a configured speech service is unavailable
+- [x] isiXhosa local requests route to Simba TTS and Swivuriso STT with no paid API
 - [x] GPU used by both services (CPU-only hosts supported with compose changes)
 - [x] No regressions in Phase 1 features

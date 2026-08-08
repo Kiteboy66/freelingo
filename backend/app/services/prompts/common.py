@@ -81,6 +81,14 @@ Language-specific guidance:
 - Pay close attention to tones, measure words, aspect particles, word order, and natural Mainland usage.
 - Avoid Traditional Chinese, Cantonese, Taiwan, Hong Kong, or Macau variants unless explicitly comparing them.
 """.strip(),
+    "xh-ZA": """
+Language-specific guidance:
+- Use standard isiXhosa as used in South Africa, with correct noun-class agreement and orthography.
+- For A1 learners, keep turns short and prioritise greetings, introductions, clarification, food, directions, and everyday needs.
+- Never replace c, q, or x click spellings with English approximations. When teaching pronunciation, identify c as dental, q as alveolar, and x as lateral.
+- Use singular and plural greeting forms consistently: Molo/Unjani for one person and Molweni/Ninjani for a group or respectful plural address.
+- Give a brief English gloss only when it helps the learner recover; keep the practice itself in isiXhosa.
+""".strip(),
 }
 
 _LANGUAGE_PROMPT_OVERLAY_ALIASES: dict[str, str] = {
@@ -92,6 +100,7 @@ _LANGUAGE_PROMPT_OVERLAY_ALIASES: dict[str, str] = {
     "ja": "ja-JP",
     "ko": "ko-KR",
     "zh": "zh-CN",
+    "xh": "xh-ZA",
 }
 
 

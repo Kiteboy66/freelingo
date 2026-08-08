@@ -10,8 +10,8 @@ import {
 } from '@/lib/target-languages'
 
 describe('SUPPORTED_TARGET_LANGUAGES', () => {
-  it('contains exactly 10 languages', () => {
-    expect(SUPPORTED_TARGET_LANGUAGES).toHaveLength(10)
+  it('contains exactly 11 languages', () => {
+    expect(SUPPORTED_TARGET_LANGUAGES).toHaveLength(11)
   })
 
   const expectedCodes = [
@@ -22,6 +22,7 @@ describe('SUPPORTED_TARGET_LANGUAGES', () => {
     'pt-PT',
     'fr-FR',
     'de-DE',
+    'xh-ZA',
     'ja-JP',
     'ko-KR',
     'zh-CN',
@@ -56,6 +57,7 @@ describe('SUPPORTED_TARGET_LANGUAGES', () => {
     expect(paths).toContain('/flags/portugal.jpg')
     expect(paths).toContain('/flags/france.jpg')
     expect(paths).toContain('/flags/germany.jpg')
+    expect(paths).toContain('/flags/south_africa.svg')
     expect(paths).toContain('/flags/japan.jpg')
     expect(paths).toContain('/flags/south_korea.jpg')
     expect(paths).toContain('/flags/china.jpg')
@@ -71,6 +73,7 @@ describe('SUPPORTED_TARGET_LANGUAGES', () => {
     const jaLangs = SUPPORTED_TARGET_LANGUAGES.filter((l) => l.iso639 === 'ja')
     const koLangs = SUPPORTED_TARGET_LANGUAGES.filter((l) => l.iso639 === 'ko')
     const zhLangs = SUPPORTED_TARGET_LANGUAGES.filter((l) => l.iso639 === 'zh')
+    const xhLangs = SUPPORTED_TARGET_LANGUAGES.filter((l) => l.iso639 === 'xh')
     expect(enLangs).toHaveLength(2)
     expect(esLangs).toHaveLength(1)
     expect(itLangs).toHaveLength(1)
@@ -80,12 +83,13 @@ describe('SUPPORTED_TARGET_LANGUAGES', () => {
     expect(jaLangs).toHaveLength(1)
     expect(koLangs).toHaveLength(1)
     expect(zhLangs).toHaveLength(1)
+    expect(xhLangs).toHaveLength(1)
   })
 })
 
 describe('TARGET_LANGUAGE_CATALOG', () => {
   it('contains the current supported languages plus CJK catalog entries', () => {
-    expect(TARGET_LANGUAGE_CATALOG).toHaveLength(10)
+    expect(TARGET_LANGUAGE_CATALOG).toHaveLength(11)
     expect(TARGET_LANGUAGE_CATALOG.map((l) => l.code)).toEqual([
       'en-US',
       'en-GB',
@@ -94,6 +98,7 @@ describe('TARGET_LANGUAGE_CATALOG', () => {
       'pt-PT',
       'fr-FR',
       'de-DE',
+      'xh-ZA',
       'ja-JP',
       'ko-KR',
       'zh-CN',
@@ -121,6 +126,16 @@ describe('TARGET_LANGUAGE_CATALOG', () => {
       flagPath: '/flags/china.jpg',
       iso639: 'zh',
       fontClass: 'font-target-zh',
+    })
+  })
+
+  it('contains isiXhosa display metadata', () => {
+    expect(getLanguageByCode('xh-ZA')).toMatchObject({
+      name: 'isiXhosa',
+      nameEn: 'Xhosa',
+      flagPath: '/flags/south_africa.svg',
+      iso639: 'xh',
+      fontClass: 'font-target-latin',
     })
   })
 })
@@ -240,6 +255,14 @@ describe('target language capabilities', () => {
 
   it('returns safe Latin defaults for unknown codes', () => {
     expect(getTargetLanguageCapability('xx-XX')).toMatchObject({
+      script: 'latin',
+      fontClass: 'font-target-latin',
+      usesWordSpacing: true,
+    })
+  })
+
+  it('uses Latin word-spaced text for isiXhosa', () => {
+    expect(TARGET_LANGUAGE_CAPABILITIES['xh-ZA']).toMatchObject({
       script: 'latin',
       fontClass: 'font-target-latin',
       usesWordSpacing: true,

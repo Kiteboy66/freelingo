@@ -108,7 +108,7 @@ backend/
 │   │   ├── language_helpers.py  # Language code parsing, script metadata, prompt length guidance, voice/engine selection
 │   │   ├── lesson_generator.py  # LLM-powered lesson content generation
 │   │   ├── listening_service.py # AI listening exercise generation + caching
-│   │   ├── llm_adapter.py       # Multi-provider LLM interface (Ollama, OpenAI, Anthropic, DeepSeek)
+│   │   ├── llm_adapter.py       # Multi-provider LLM interface (Ollama, Gemini, OpenAI, Anthropic, DeepSeek)
 │   │   ├── memory_service.py    # Autonomous LLM memory management
 │   │   ├── progress_service.py  # XP calculation, streak logic, skill scoring
 │   │   ├── prompts/             # Centralized LLM prompt templates and builders
@@ -116,7 +116,7 @@ backend/
 │   │   ├── reading_service.py   # AI reading exercise generation + caching
 │   │   ├── resource_native_help.py # Static-resource native-help cache helpers
 │   │   ├── review_service.py    # User review creation, duplicate guard, approval, deletion
-│   │   ├── stt_service.py       # Speech-to-text abstraction (local Whisper / OpenAI)
+│   │   ├── stt_service.py       # Speech-to-text abstraction (local Whisper / Groq / OpenAI)
 │   │   ├── study_plan_generator.py  # Deterministic unit distribution from curriculum
 │   │   ├── subscription_service.py  # Stripe subscription management
 │   │   ├── tts_service.py       # Text-to-speech abstraction (local Kokoro / OpenAI)
@@ -142,7 +142,7 @@ backend/
 ├── alembic/
 │   └── versions/                # DB migrations (50 migrations)
 │
-└── tests/                       # pytest suite (44 test files, 973 tests)
+└── tests/                       # pytest suite (46 test files, 984 tests)
 ```
 
 ## Database models
@@ -170,7 +170,7 @@ For complete schema details, relationships, constraints, and business rules, see
 
 ## Service layer
 
-All external dependencies are accessed through the service layer. The frontend never calls Ollama, Kokoro, or Whisper directly — the backend is the single gateway.
+All external dependencies are accessed through the service layer. The frontend never calls Ollama, Gemini, Groq, Kokoro, Whisper, Simba, or Swivuriso directly — the backend is the single gateway.
 
 The application uses 21 services plus a centralized `services/prompts/` package organized by domain:
 
@@ -184,11 +184,11 @@ The application uses 21 services plus a centralized `services/prompts/` package 
 
 Key architectural decisions:
 
-- **LLM Adapter** is a singleton with provider-agnostic interface (Ollama, OpenAI, Anthropic, DeepSeek). Streaming native tools normalize OpenAI-compatible and Anthropic events, forward visible text progressively while filtering tool metadata, execute at most one call, and continue once with provider-native tool-result messages. OpenAI GPT-5.6 Chat Completions set `reasoning_effort="none"` only for tool rounds. Tool-free retries receive a clean fallback prompt; explicit incompatibilities become session-local unavailable capability for voice, while transient failures are probed again. Known incompatibility or continuation failure after visible output resets the consumer before retrying the complete turn, and empty fallbacks fail instead of producing a successful blank response. Committed tool results are exposed immediately, while executor failures remain internal failed tool results.
+- **LLM Adapter** is a singleton with provider-agnostic interface (Ollama, Gemini, OpenAI, Anthropic, DeepSeek). Gemini uses Google's OpenAI-compatible endpoint and a 1,048,576-token context limit. Streaming native tools normalize OpenAI-compatible and Anthropic events, forward visible text progressively while filtering tool metadata, execute at most one call, and continue once with provider-native tool-result messages. OpenAI GPT-5.6 Chat Completions set `reasoning_effort="none"` only for tool rounds. Tool-free retries receive a clean fallback prompt; explicit incompatibilities become session-local unavailable capability for voice, while transient failures are probed again. Known incompatibility or continuation failure after visible output resets the consumer before retrying the complete turn, and empty fallbacks fail instead of producing a successful blank response. Committed tool results are exposed immediately, while executor failures remain internal failed tool results.
 - **Memory Service** owns strict native `save_user_memory` execution, escaped global context, exact per-user deduplication, a 150-item cap, manual creation, and owner-scoped management. Saves, individual deletion, and clear-all serialize on the same user-row lock. `study_plan_id` records nullable provenance only.
 - **Voice memory capability** is session-local state on `ConversationPipeline`. Once a model explicitly rejects tools, later turns in the same WebSocket session omit them; a new voice session probes capability again.
 - **Study Plan Generator** and **Lesson Generator** are deterministic within curriculum constraints; lesson generation can include native-language support at lesson level, per-exercise explanation level, and per-exercise pre-answer hint level without adding separate exercise-table columns, enriched lesson vocabulary with native-language translation/example notes inside lesson JSON, and missing exercise native explanations or hints can be generated on demand and cached in lesson JSON
-- **TTS/STT services** abstract local (Kokoro/Whisper) and cloud (OpenAI) providers behind common interfaces
+- **TTS/STT services** abstract local (Kokoro/Whisper), specialised local isiXhosa (Simba/Swivuriso), and cloud (Groq/OpenAI) providers behind common interfaces. Local calls route by ISO language code; Groq accepts normalized ISO 639-1 language hints. The TTS router persists content-addressed isiXhosa MP3s when caching is enabled.
 - **Conversation Pipeline** orchestrates real-time voice: cancellable greeting, STT → full LLM response → sentence-level TTS chunks, serialized WebSocket sends, empty-STT guard, and backend barge-in support with frontend automatic interruption disabled
 - **Language Helpers** centralize target-language display names, ISO codes, script metadata, romanization metadata, word-spacing metadata, and reading/listening length guidance. Japanese (`ja-JP`), Korean (`ko-KR`), and Mainland Chinese (`zh-CN`) are enabled in backend language allow-lists and static content dispatchers.
 - **Dashboard banner translation** remains router-level orchestration rather than a dedicated service: the admin router uses the existing LLM Adapter's structured output to generate all ten UI-locale translations, preserves the validated source text, and leaves every translation editable before the singleton is saved.
@@ -216,18 +216,18 @@ Testing infrastructure and strategy are documented in [testing.instructions.md](
 - **Framework**: pytest + pytest-asyncio + httpx AsyncClient
 - **Test files**: 44 (plus conftest.py for shared fixtures)
 - **Tests**: 973
-- **Coverage**: 84.79% last measured (target: ≥70%)
+- **Coverage**: 85.18% last measured (target: ≥70%)
 - **Key fixtures**: async database session, test client with auth headers, Redis mock, user_language fixture
 
 ---
 
 ## Environment variables
 
-All configuration is environment-driven. Variables are defined in `app/core/config.py` (Pydantic Settings). 63 variables total — the complete list below.
+All configuration is environment-driven. Variables are defined in `app/core/config.py` (Pydantic Settings). 75 variables total — the complete list below.
 
 ### Core
 
-- DATABASE_URL — Default: —; Purpose: asyncpg connection string
+- DATABASE_URL — Default: —; Purpose: asyncpg connection string; standard hosted `postgresql://` URLs are normalized, including Neon `sslmode` and `channel_binding` parameters
 - REDIS_URL — Default: redis://localhost:6379/0; Purpose: Redis connection string
 - SECRET_KEY — Default: —; Purpose: JWT signing key (HS256)
 - ACCESS_TOKEN_EXPIRE_MINUTES — Default: 15; Purpose: JWT lifetime
@@ -254,11 +254,13 @@ All configuration is environment-driven. Variables are defined in `app/core/conf
 
 ### LLM
 
-- LLM_PROVIDER — Default: ollama; Purpose: `ollama` / `openai` / `anthropic` / `deepseek`
+- LLM_PROVIDER — Default: ollama; Purpose: `ollama` / `gemini` / `openai` / `anthropic` / `deepseek`
 - OLLAMA_BASE_URL — Default: http://host.docker.internal:11434; Purpose: Ollama API endpoint
 - OLLAMA_MODEL — Default: gemma4:e4b; Purpose: Model tag to use with Ollama
 - OPENAI_API_KEY — Default: ``; Purpose: OpenAI API key (also reused for TTS/STT when provider is `openai`)
 - OPENAI_MODEL — Default: gpt-4o-mini; Purpose: OpenAI chat model
+- GEMINI_API_KEY — Default: ``; Purpose: Google Gemini API key
+- GEMINI_MODEL — Default: gemini-3.5-flash-lite; Purpose: Gemini model at Google's OpenAI-compatible endpoint
 - ANTHROPIC_API_KEY — Default: ``; Purpose: Anthropic API key
 - ANTHROPIC_MODEL — Default: claude-3-5-haiku-latest; Purpose: Anthropic chat model
 - DEEPSEEK_API_KEY — Default: ``; Purpose: DeepSeek API key
@@ -269,15 +271,19 @@ All configuration is environment-driven. Variables are defined in `app/core/conf
 - TTS_PROVIDER — Default: local; Purpose: `local` (Kokoro) or `openai`
 - TTS_BASE_URL — Default: http://kokoro:8880; Purpose: Kokoro-FastAPI endpoint (local provider)
 - TTS_VOICE — Default: af_heart; Purpose: Kokoro voice ID (local provider)
+- XHOSA_SPEECH_BASE_URL — Default: http://xhosa-speech:9100; Purpose: combined local Simba TTS and Swivuriso STT endpoint for `xh`
 - OPENAI_TTS_MODEL — Default: tts-1; Purpose: OpenAI TTS model (openai provider)
 - OPENAI_TTS_VOICE — Default: nova; Purpose: OpenAI TTS voice (openai provider)
 - OPENAI_TTS_SPEED — Default: 1.0; Purpose: OpenAI TTS playback speed (openai provider)
+- TTS_CACHE_ENABLED — Default: true; Purpose: Persist content-addressed isiXhosa MP3s under `AUDIO_STORAGE_PATH/tts/xh`
 
 ### STT
 
-- STT_PROVIDER — Default: local; Purpose: `local` (faster-whisper) or `openai`
+- STT_PROVIDER — Default: local; Purpose: `local` (faster-whisper), `groq`, or `openai`
 - STT_BASE_URL — Default: http://whisper:9000; Purpose: Whisper ASR endpoint (local provider)
 - OPENAI_STT_MODEL — Default: whisper-1; Purpose: OpenAI STT model (openai provider)
+- GROQ_API_KEY — Default: ``; Purpose: Groq API key for hosted transcription
+- GROQ_STT_MODEL — Default: whisper-large-v3; Purpose: Groq transcription model
 
 > `STT_MODEL` and `STT_ENGINE` are Docker-level variables passed to the Whisper container — they are **not** consumed by the Python backend.
 
@@ -320,7 +326,9 @@ The app does not create Stripe products or prices automatically; operators confi
 
 - RATE_LIMIT_ENABLED — Default: true; Purpose: Enable slowapi rate limiting
 - AUDIO_STORAGE_PATH — Default: /data/audio; Purpose: Docker volume path for generated listening MP3 files
-- AVAILABLE_TARGET_LANGUAGES — Default: ["de-DE","en-GB","en-US","es-ES","fr-FR","it-IT","ja-JP","ko-KR","pt-PT","zh-CN"]; Purpose: Operator-configured BCP-47 target-language list; entries not present in backend `SUPPORTED_TARGET_LANGUAGES` are filtered out
+- AVATAR_STORAGE_PATH — Default: /app/avatars; Purpose: persistent private avatar directory
+- TTS_PREVIEW_STORAGE_PATH — Default: /app/tts_previews; Purpose: persistent OpenAI voice-preview directory
+- AVAILABLE_TARGET_LANGUAGES — Default: ["de-DE","en-GB","en-US","es-ES","fr-FR","it-IT","ja-JP","ko-KR","pt-PT","xh-ZA","zh-CN"]; Purpose: Operator-configured BCP-47 target-language list; entries not present in backend `SUPPORTED_TARGET_LANGUAGES` are filtered out
 
 ### Docker-level variables (not consumed by Python backend)
 

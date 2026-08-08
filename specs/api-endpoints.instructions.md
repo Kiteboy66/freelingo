@@ -220,14 +220,14 @@ All endpoints require `require_subscription_or_freemium("chat")`. Memory managem
 
 ## TTS — `/api/tts`
 
-- **POST ``** — Rate limit: 20/min. Text → MP3 audio. Uses Kokoro TTS (local) or OpenAI TTS, controlled by `TTS_PROVIDER`. Supports optional trace correlation via request header `X-TTS-Trace-ID`. Returns diagnostic headers: `X-TTS-Trace-ID`, `X-TTS-Backend-Synth-Ms`, `X-TTS-Backend-Total-Ms` (and, when passing through the Next.js proxy, `X-TTS-Proxy-Fetch-Ms`, `X-TTS-Proxy-Buffer-Ms`, `X-TTS-Proxy-Total-Ms`).
+- **POST ``** — Rate limit: 20/min. Text → MP3 audio. JSON body: `{text, voice?, language?}`. Uses Kokoro TTS for ordinary local requests, Simba TTS when local `language` is `xh`/`xh-ZA`, or OpenAI TTS when selected by `TTS_PROVIDER`. Supports optional trace correlation via request header `X-TTS-Trace-ID`. Returns diagnostic headers: `X-TTS-Trace-ID`, `X-TTS-Backend-Synth-Ms`, `X-TTS-Backend-Total-Ms` (and, when passing through the Next.js proxy, `X-TTS-Proxy-Fetch-Ms`, `X-TTS-Proxy-Buffer-Ms`, `X-TTS-Proxy-Total-Ms`).
 - **GET `/preview/{voice}`** — Rate limit: 60/min. Returns a short MP3 preview for an OpenAI TTS voice when supported.
 
 ---
 
 ## STT — `/api/stt`
 
-- POST — Path: ``; Rate limit: 20/min; Description: Audio → transcribed text. Uses faster-whisper (local) or OpenAI Whisper, controlled by `STT_PROVIDER`.
+- POST — Path: ``; Rate limit: 20/min; Description: Audio → transcribed text. Multipart fields: required `audio`, optional `language` ISO code. Uses ordinary faster-whisper locally, routes local `xh` to Swivuriso, or uses Groq/OpenAI Whisper when selected by `STT_PROVIDER`.
 
 ---
 
@@ -243,7 +243,7 @@ Full-duplex voice conversation pipeline.
 
 Both `POST /api/conversation/warmup` and `/ws/conversation` require an authenticated user with subscription or freemium access when `STRIPE_ENABLED=true`, except for a valid post-assessment voice trial token. Both reject non-admin users while maintenance mode is active.
 
-- **POST `/api/conversation/warmup`** — Rate limit: 20/min. Pre-heats TTS and STT models before opening the WebSocket. Optional body: `{trial_token}` for the post-assessment demo.
+- **POST `/api/conversation/warmup`** — Rate limit: 20/min. Pre-heats TTS and STT models before opening the WebSocket. Optional body: `{trial_token, target_language}` for the post-assessment demo and language-aware speech routing. An isiXhosa local-TTS warmup synthesizes and caches a short Simba phrase.
 
 **Authentication**: After the WebSocket handshake is accepted, the client must send a JSON message `{"type": "auth", "token": "<access_token>"}` within 10 seconds. If missing, malformed, or invalid, the server closes the connection with code 1008.
 
@@ -275,7 +275,7 @@ Both `POST /api/conversation/warmup` and `/ws/conversation` require an authentic
 - **Gapless playback**: `AudioQueue` schedules consecutive `AudioBufferSourceNode`s
 - **Session timeouts**: max duration (default 30 min) and inactivity (default 3 min), each with 60 s warning
 - **In-memory history**: last 20 messages kept for LLM context during session (not persisted to DB)
-- **Warmup**: `POST /api/conversation/warmup` pre-heats TTS and STT models before opening the WebSocket
+- **Warmup**: `POST /api/conversation/warmup` pre-heats language-specific TTS and the configured STT provider before opening the WebSocket
 
 ---
 

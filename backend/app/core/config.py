@@ -1,3 +1,5 @@
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
 from pydantic import field_validator
 from pydantic_settings import BaseSettings
 
@@ -16,6 +18,8 @@ class Settings(BaseSettings):
     OLLAMA_MODEL: str = "gemma4:e4b"
     OPENAI_API_KEY: str = ""
     OPENAI_MODEL: str = "gpt-4o-mini"
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-3.5-flash-lite"
     ANTHROPIC_API_KEY: str = ""
     ANTHROPIC_MODEL: str = "claude-3-5-haiku-latest"
     DEEPSEEK_API_KEY: str = ""
@@ -23,12 +27,16 @@ class Settings(BaseSettings):
     TTS_PROVIDER: str = "local"  # local | openai
     TTS_BASE_URL: str = "http://kokoro:8880"
     TTS_VOICE: str = "af_heart"
+    XHOSA_SPEECH_BASE_URL: str = "http://xhosa-speech:9100"
     OPENAI_TTS_MODEL: str = "tts-1"
     OPENAI_TTS_VOICE: str = "nova"
     OPENAI_TTS_SPEED: float = 1.0
-    STT_PROVIDER: str = "local"  # local | openai
+    STT_PROVIDER: str = "local"  # local | openai | groq
     STT_BASE_URL: str = "http://whisper:9000"
     OPENAI_STT_MODEL: str = "whisper-1"
+    GROQ_API_KEY: str = ""
+    GROQ_STT_MODEL: str = "whisper-large-v3"
+    TTS_CACHE_ENABLED: bool = True
     RATE_LIMIT_ENABLED: bool = True
     CORS_ORIGINS: list[str] = ["http://localhost:3000"]
     COOKIE_SECURE: bool = False
@@ -82,6 +90,8 @@ class Settings(BaseSettings):
 
     # Listening — path where generated MP3 files are stored (Docker volume)
     AUDIO_STORAGE_PATH: str = "/data/audio"
+    AVATAR_STORAGE_PATH: str = "/app/avatars"
+    TTS_PREVIEW_STORAGE_PATH: str = "/app/tts_previews"
 
     # Multi-language — operator-configured subset of supported target languages.
     AVAILABLE_TARGET_LANGUAGES: list[str] = [
@@ -94,8 +104,35 @@ class Settings(BaseSettings):
         "ja-JP",
         "ko-KR",
         "pt-PT",
+        "xh-ZA",
         "zh-CN",
     ]
+
+    @field_validator("DATABASE_URL", mode="before")
+    @classmethod
+    def normalize_database_url(cls, value: str) -> str:
+        """Accept the standard connection URL copied from hosted Postgres providers."""
+        if not isinstance(value, str) or value.startswith("sqlite"):
+            return value
+
+        parts = urlsplit(value)
+        scheme = parts.scheme
+        if scheme in {"postgres", "postgresql"}:
+            scheme = "postgresql+asyncpg"
+        if scheme != "postgresql+asyncpg":
+            return value
+
+        # Neon supplies libpq parameters. asyncpg expects ``ssl`` and does not
+        # accept ``channel_binding`` as a connection keyword.
+        query_items = []
+        for key, query_value in parse_qsl(parts.query, keep_blank_values=True):
+            if key == "sslmode":
+                query_items.append(("ssl", query_value))
+            elif key != "channel_binding":
+                query_items.append((key, query_value))
+        return urlunsplit(
+            (scheme, parts.netloc, parts.path, urlencode(query_items), parts.fragment)
+        )
 
     @field_validator(
         "DEFAULT_CONVERSATION_WEEKLY_SESSIONS",
@@ -120,7 +157,9 @@ class Settings(BaseSettings):
     @classmethod
     def validate_default_inactivity_timeout(cls, value: int) -> int:
         if value not in (60, 180, 300):
-            raise ValueError("DEFAULT_CONVERSATION_INACTIVITY_TIMEOUT must be 60, 180, or 300")
+            raise ValueError(
+                "DEFAULT_CONVERSATION_INACTIVITY_TIMEOUT must be 60, 180, or 300"
+            )
         return value
 
     @field_validator(
@@ -141,9 +180,13 @@ class Settings(BaseSettings):
     @classmethod
     def validate_trial_duration(cls, value: int) -> int:
         if value <= 0:
-            raise ValueError("ASSESSMENT_VOICE_TRIAL_DURATION_SECONDS must be greater than 0")
+            raise ValueError(
+                "ASSESSMENT_VOICE_TRIAL_DURATION_SECONDS must be greater than 0"
+            )
         if value > 1800:
-            raise ValueError("ASSESSMENT_VOICE_TRIAL_DURATION_SECONDS must not exceed 1800")
+            raise ValueError(
+                "ASSESSMENT_VOICE_TRIAL_DURATION_SECONDS must not exceed 1800"
+            )
         return value
 
     model_config = {"env_file": ".env"}

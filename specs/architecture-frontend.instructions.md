@@ -116,7 +116,7 @@ frontend/
 │   │
 │   └── middleware.ts            # Auth guard (redirect to /login) + locale detection
 │
-├── tests/                       # Vitest suite (41 test files, 446 tests; coverage not configured)
+├── tests/                       # Vitest suite (41 test files, 449 tests; coverage not configured)
 │   ├── setup.ts                 # Global mocks: localStorage, next/navigation, next-intl
 │   ├── middleware.test.ts
 │   ├── components/
@@ -240,7 +240,7 @@ Seven Zustand stores hold all client-side state. No React Context is used for gl
 - **`locales.ts`** — next-intl locale detection and routing utilities
 - **`mappers.ts`** — Data transformation helpers between API responses and frontend models. `mapUser()` carries subscription metadata, freemium state, and `dismissed_dashboard_banner_revision` into the auth store, with safe fallbacks for partial PATCH responses.
 - **`billing-copy.ts`** — Shared billing CTA helpers and `BillingInterval` type; splits yearly CTA copy so the savings label renders on a stable second line instead of orphaning the trailing arrow in long locales.
-- **`target-languages.ts`** — Target language definitions: BCP-47 codes, display names, flag mappings, ISO codes, script/romanisation metadata, word-spacing capability, and language-specific font class helpers. `TARGET_LANGUAGE_CATALOG` and `SUPPORTED_TARGET_LANGUAGES` contain all 10 frontend-known target languages, including Japanese, Korean, and Mainland Chinese. User-visible options are constrained by backend `availableLanguageCodes` when provided.
+- **`target-languages.ts`** — Target language definitions: BCP-47 codes, display names, flag mappings, ISO codes, script/romanisation metadata, word-spacing capability, and language-specific font class helpers. `TARGET_LANGUAGE_CATALOG` and `SUPPORTED_TARGET_LANGUAGES` contain all 11 frontend-known target languages, including isiXhosa, Japanese, Korean, and Mainland Chinese. User-visible options are constrained by backend `availableLanguageCodes` when provided.
 - **`utils.ts`** — General-purpose utilities: formatting, date helpers, class name merging
 
 ## Components overview
@@ -306,7 +306,9 @@ Content that is part of the language being learned must use the language-aware r
 
 - `frontend/src/lib/target-languages.ts` stores `script`, `fontClass`, `usesWordSpacing`, and optional `romanization` metadata.
 - `getTargetLanguageTextClass(code)` returns Latin-compatible mono styling for current Latin-script languages and CJK-friendly `font-target-ja`, `font-target-ko`, or `font-target-zh` classes for `ja-JP`, `ko-KR`, and `zh-CN` content.
-- `TARGET_LANGUAGE_CATALOG` and `SUPPORTED_TARGET_LANGUAGES` include display metadata and flag paths for all 10 target languages, including `ja-JP`, `ko-KR`, and `zh-CN`. `TargetLanguageSelector`, Settings → My Languages, and Admin → Create User filter through operator-provided `availableCodes` / `availableLanguageCodes` when those values are available.
+- `TARGET_LANGUAGE_CATALOG` and `SUPPORTED_TARGET_LANGUAGES` include display metadata and flag paths for all 11 target languages, including `xh-ZA`, `ja-JP`, `ko-KR`, and `zh-CN`. `TargetLanguageSelector`, Settings → My Languages, and Admin → Create User filter through operator-provided `availableCodes` / `availableLanguageCodes` when those values are available.
+- Placement derives the selectable CEFR levels from the current language's assessment bank. The isiXhosa flow therefore stays at A1 and defaults the duration selector to the 2-week/7-days-per-week option; other languages retain the 12-week default.
+- `AudioPlayer` includes the active BCP-47 language in TTS JSON, and `VoiceRecorder` includes its ISO code in STT multipart form data, enabling backend language-aware speech routing.
 - `frontend/src/components/TargetLanguageText.tsx` applies the correct class and `lang` attribute. Use it for lesson content, exercise prompts/options, flashcards, reading/listening transcripts, phrasebook entries, vocabulary examples, assessment questions, and chat/conversation transcript text.
 - `globals.css` defines `font-target-latin`, `font-target-ja`, `font-target-ko`, and `font-target-zh`. CJK classes use Noto variables when available plus platform fallbacks (`Hiragino Sans`/`Yu Gothic`/`Meiryo`, `Apple SD Gothic Neo`/`Malgun Gothic`, `PingFang SC`/`Microsoft YaHei`/`Noto Sans CJK SC`).
 
@@ -373,6 +375,8 @@ AudioQueue drains → clear assistant speaking state from playback `onIdle`
 ```
 
 `ConversationMode` guards the session lifecycle with a per-start attempt id. If microphone startup fails, the user stops the session, or the component unmounts while the warmup request is still pending, the pending attempt is invalidated so it cannot open a stale WebSocket afterwards.
+
+The warmup request includes the active `target_language`. The ordinary timeout remains 15 seconds, while isiXhosa allows 300 seconds for a sleeping Railway Simba service to download/load its model. Separate-domain deployments bake `NEXT_PUBLIC_API_URL` into the frontend image so WebSocket traffic reaches the public backend domain; HTTP API proxies continue over the private `BACKEND_URL`.
 
 The voice UI does not clear `assistantSpeaking` from `turn_complete` or `status=listening`; it waits for the audio queue idle callback so the visible speaking state follows actual playback. A separate assistant-turn guard ignores VAD detections while the tutor is generating or sending chunked audio, so automatic frontend barge-in remains disabled for stable turn completion while the backend `barge_in` protocol stays available.
 

@@ -61,7 +61,7 @@ describe('TargetLanguageSelector', () => {
     )
 
     const buttons = screen.getAllByRole('button')
-    expect(buttons).toHaveLength(10)
+    expect(buttons).toHaveLength(11)
   })
 
   it('renders nothing when availableCodes is empty', () => {

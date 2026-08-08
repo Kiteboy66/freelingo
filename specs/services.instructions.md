@@ -5,16 +5,17 @@ applyTo: "backend/app/services/**, backend/app/core/app_logger.py"
 
 # Service Layer — FreeLingo
 
-All external dependencies are accessed through the service layer. The frontend never calls Ollama, Kokoro, or Whisper directly — the backend is the single gateway.
+All external dependencies are accessed through the service layer. The frontend never calls Ollama, Gemini, Groq, Kokoro, Whisper, Simba, or Swivuriso directly — the backend is the single gateway.
 
 ## LLM Adapter (`llm_adapter.py`)
 
-Singleton providing provider-agnostic LLM access. Supports four providers selectable via `LLM_PROVIDER` env variable:
+Singleton providing provider-agnostic LLM access. Supports five providers selectable via `LLM_PROVIDER` env variable:
 
 - ollama — Client: AsyncOpenAI (openai SDK); Max tokens: 8192; Notes: Local, openai-compatible endpoint
 - openai — Client: AsyncOpenAI; Max tokens: 128K; Notes: —
 - deepseek — Client: AsyncOpenAI; Max tokens: 128K; Notes: openai-compatible endpoint
 - anthropic — Client: AsyncAnthropic (anthropic SDK); Max tokens: 200K; Notes: Separate code path; system message extracted
+- gemini — Client: AsyncOpenAI; Max tokens: 1,048,576; Notes: Google's OpenAI-compatible endpoint, default model `gemini-3.5-flash-lite`
 
 **Key capabilities:**
 
@@ -39,7 +40,7 @@ Singleton providing provider-agnostic LLM access. Supports four providers select
 
 ## Study Plan Generator (`study_plan_generator.py`)
 
-Fully deterministic — no LLM. Uses static curriculum data from `curriculum.py` to distribute units across weeks/days. The `distribute_units()` function maps curriculum units onto lesson slots based on duration and intensity, cycling lesson types (grammar → vocabulary → reading → writing → review). The last slot is always reserved for the end-of-level completion test.
+Fully deterministic — no LLM. Uses static curriculum data from `curriculum.py` to distribute units across weeks/days. The `distribute_units()` function maps curriculum units proportionally onto lesson slots based on duration and intensity, cycling lesson types within each unit and ensuring short plans cover all units when enough slots exist. The last slot is always reserved for the end-of-level completion test. `get_supported_cefr_levels()` and `get_next_supported_cefr_level()` prevent plans and progression from referencing levels without content.
 
 ## Lesson Generator (`lesson_generator.py`)
 
@@ -84,7 +85,7 @@ Shared BCP-47 conversion utilities and language capability metadata used across 
 - `get_comprehension_length_guidance(target_language, base_word_count)` — returns language-aware length strings such as `160–240 characters` for Japanese/Chinese and `80 words` for word-spaced targets
 - `voice_session_title(native_language)` — localised "Voice session — date" strings for all 10 supported languages
 
-Japanese (`ja-JP`), Korean (`ko-KR`), and Mainland Chinese (`zh-CN`) are now enabled in registration schemas, `AVAILABLE_TARGET_LANGUAGES` defaults, static content dispatchers, and target-language prompt metadata.
+Japanese (`ja-JP`), Korean (`ko-KR`), Mainland Chinese (`zh-CN`), and isiXhosa (`xh-ZA`) are enabled in registration schemas, `AVAILABLE_TARGET_LANGUAGES` defaults, static content dispatchers, and target-language prompt metadata. isiXhosa intentionally advertises A1 only.
 
 ## Memory Service (`memory_service.py`)
 
@@ -106,17 +107,20 @@ Handles global per-user persistent context across text and voice conversations:
 
 ## TTS Service (`tts_service.py`)
 
-Abstracts TTS behind a common `synthesise(text, voice) → bytes` interface. Provider selected via `TTS_PROVIDER`:
+Abstracts TTS behind a common `synthesize(text, voice, language) → bytes` interface. Provider selected via `TTS_PROVIDER`:
 
-- **`local`**: HTTP client to Kokoro-FastAPI — `POST /v1/audio/speech`. Returns MP3 audio bytes.
+- **`local`**: HTTP client to Kokoro-FastAPI — `POST /v1/audio/speech`. For `xh`/`xh-ZA`, the same client routes to `XHOSA_SPEECH_BASE_URL` and requests `UBC-NLP/Simba-TTS-xho`. Both return MP3 audio bytes.
 - **`openai`**: OpenAI TTS API (`tts-1` model, configurable via `OPENAI_TTS_MODEL` / `OPENAI_TTS_VOICE`).
+
+The `/api/tts` router content-addresses successful isiXhosa MP3s by text, voice, and language under `AUDIO_STORAGE_PATH/tts/xh` when `TTS_CACHE_ENABLED=true`. The cache is shared by direct pronunciation, phrasebook, lesson, and voice warmup requests on a persistent deployment volume.
 
 ## STT Service (`stt_service.py`)
 
 Abstracts STT behind a common `transcribe(audio_bytes, language) → str` interface. Provider selected via `STT_PROVIDER`:
 
-- **`local`**: HTTP client to Whisper ASR — `POST /asr?output=json&language=<lang>&task=transcribe` (multipart). Uses `onerahmet/openai-whisper-asr-webservice` image (not OpenAI-compatible endpoint).
+- **`local`**: HTTP client to Whisper ASR — `POST /asr?output=json&language=<lang>&task=transcribe` (multipart). For isiXhosa it routes to `XHOSA_SPEECH_BASE_URL/asr` backed by `digiphyte/swivuriso-turbo` and intentionally omits the language parameter because faster-whisper's built-in allow-list does not include `xh`.
 - **`openai`**: OpenAI Whisper API (`whisper-1` model, configurable via `OPENAI_STT_MODEL`).
+- **`groq`**: Groq's OpenAI-compatible transcription API at `https://api.groq.com/openai/v1`, using `whisper-large-v3` by default. BCP-47 input such as `xh-ZA` is normalized to ISO 639-1 `xh`.
 
 ## Logging & Observability (`core/app_logger.py`)
 

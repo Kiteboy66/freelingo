@@ -20,8 +20,6 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
-_AVATARS_DIR = "/app/avatars"
-_TTS_PREVIEWS_DIR = "/app/tts_previews"
 from app.routers import (
     admin,
     admin_dashboard_banner,
@@ -51,7 +49,7 @@ from app.routers import (
 )
 from app.routers import config as config_router
 from app.routers import health as health_router
-from app.services.stt_service import OpenAISTTService, WhisperSTTService
+from app.services.stt_service import GroqSTTService, OpenAISTTService, WhisperSTTService
 from app.services.tts_service import KokoroTTSService, OpenAITTSService
 
 
@@ -75,9 +73,9 @@ async def lifespan(app: FastAPI):  # noqa: ANN201
     await asyncio.to_thread(_run_migrations)
 
     # Ensure the avatars directory exists on startup (persisted via Docker volume)
-    os.makedirs(_AVATARS_DIR, exist_ok=True)
+    os.makedirs(settings.AVATAR_STORAGE_PATH, exist_ok=True)
     # Ensure the TTS preview cache directory exists on startup
-    os.makedirs(_TTS_PREVIEWS_DIR, exist_ok=True)
+    os.makedirs(settings.TTS_PREVIEW_STORAGE_PATH, exist_ok=True)
 
     if settings.TTS_PROVIDER == "openai":
         if not settings.OPENAI_API_KEY:
@@ -89,9 +87,20 @@ async def lifespan(app: FastAPI):  # noqa: ANN201
             speed=settings.OPENAI_TTS_SPEED,
         )
     else:
-        app.state.tts_service = KokoroTTSService(settings.TTS_BASE_URL, settings.TTS_VOICE)
+        app.state.tts_service = KokoroTTSService(
+            settings.TTS_BASE_URL,
+            settings.TTS_VOICE,
+            settings.XHOSA_SPEECH_BASE_URL,
+        )
 
-    if settings.STT_PROVIDER == "openai":
+    if settings.STT_PROVIDER == "groq":
+        if not settings.GROQ_API_KEY:
+            raise ValueError("STT_PROVIDER=groq requires GROQ_API_KEY to be set")
+        app.state.stt_service = GroqSTTService(
+            api_key=settings.GROQ_API_KEY,
+            model=settings.GROQ_STT_MODEL,
+        )
+    elif settings.STT_PROVIDER == "openai":
         if not settings.OPENAI_API_KEY:
             raise ValueError("STT_PROVIDER=openai requires OPENAI_API_KEY to be set")
         app.state.stt_service = OpenAISTTService(
@@ -99,7 +108,10 @@ async def lifespan(app: FastAPI):  # noqa: ANN201
             model=settings.OPENAI_STT_MODEL,
         )
     else:
-        app.state.stt_service = WhisperSTTService(settings.STT_BASE_URL)
+        app.state.stt_service = WhisperSTTService(
+            settings.STT_BASE_URL,
+            settings.XHOSA_SPEECH_BASE_URL,
+        )
 
     yield
 
@@ -123,7 +135,9 @@ async def security_headers_middleware(request: Request, call_next) -> Response:
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    response.headers["X-XSS-Protection"] = "0"  # Modern browsers ignore it; CSP is the right tool
+    response.headers["X-XSS-Protection"] = (
+        "0"  # Modern browsers ignore it; CSP is the right tool
+    )
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; object-src 'none'; base-uri 'self'"  # API-only responses (JSON/binary)
     )

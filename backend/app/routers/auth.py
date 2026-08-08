@@ -85,11 +85,15 @@ async def register(
 
     existing = await db.execute(select(User).where(User.username == data.username))
     if existing.scalar_one_or_none():
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username already taken")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Username already taken"
+        )
 
     email_check = await db.execute(select(User).where(User.email == data.email))
     if email_check.scalar_one_or_none():
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already taken")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Email already taken"
+        )
 
     user_count = await db.scalar(select(func.count(User.id)))
     role = "admin" if (user_count == 0 and settings.FIRST_USER_IS_ADMIN) else "user"
@@ -113,9 +117,9 @@ async def register(
     if settings.STRIPE_ENABLED and settings.FREEMIUM_TRIAL_ENABLED:
         from datetime import timedelta
 
-        user.freemium_trial_ends_at = datetime.now(UTC).replace(tzinfo=None) + timedelta(
-            days=settings.FREEMIUM_TRIAL_DAYS
-        )
+        user.freemium_trial_ends_at = datetime.now(UTC).replace(
+            tzinfo=None
+        ) + timedelta(days=settings.FREEMIUM_TRIAL_DAYS)
         user.freemium_trial_used = True
         await db.commit()
 
@@ -176,7 +180,9 @@ async def login(
         password_ok = False
 
     if not password_ok or not user or not user.is_active:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials"
+        )
 
     user.last_login = datetime.now(UTC).replace(tzinfo=None)
     await db.commit()
@@ -236,7 +242,9 @@ async def refresh(
 
     user = await db.get(User, int(user_id))
     if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"
+        )
 
     return {
         "access_token": create_access_token(user.id, user.role),
@@ -302,7 +310,9 @@ async def update_me(
     if data.email is not None and data.email != current_user.email:
         dup = await db.execute(select(User).where(User.email == data.email))
         if dup.scalar_one_or_none():
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already taken")
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT, detail="Email already taken"
+            )
         current_user.email = data.email
     if data.password is not None:
         current_user.hashed_password = hash_password(data.password)
@@ -331,7 +341,11 @@ async def update_me(
             # update the existing row instead of creating a duplicate.
             new_prefix = data.target_language.split("-")[0]
             same_base = next(
-                (ul for ul in user_langs if ul.target_language.split("-")[0] == new_prefix),
+                (
+                    ul
+                    for ul in user_langs
+                    if ul.target_language.split("-")[0] == new_prefix
+                ),
                 None,
             )
             if same_base:
@@ -357,7 +371,9 @@ async def update_me(
     if data.conversation_max_duration is not None:
         current_user.conversation_max_duration = data.conversation_max_duration
     if data.conversation_inactivity_timeout is not None:
-        current_user.conversation_inactivity_timeout = data.conversation_inactivity_timeout
+        current_user.conversation_inactivity_timeout = (
+            data.conversation_inactivity_timeout
+        )
     if data.bio is not None:
         current_user.bio = data.bio if data.bio.strip() else None
     if data.learning_goals is not None:
@@ -370,7 +386,7 @@ async def update_me(
 
 _MAX_AVATAR_BYTES = 2 * 1024 * 1024  # 2 MB
 _ALLOWED_AVATAR_TYPES = {"image/jpeg", "image/png"}
-_AVATARS_DIR = "/app/avatars"
+_AVATARS_DIR = settings.AVATAR_STORAGE_PATH
 
 
 def _avatar_path_from_reference(avatar: str | None) -> str | None:
@@ -406,7 +422,9 @@ def _validate_avatar_bytes(content_type: str | None, data: bytes) -> str:
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid image file"
             )
         return "png"
-    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid image file")
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid image file"
+    )
 
 
 @router.post("/me/avatar", response_model=UserResponse)
@@ -450,7 +468,9 @@ async def get_avatar_file(
     current_user: User = Depends(get_current_user),
 ) -> Response:
     if not current_user.avatar:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Avatar not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Avatar not found"
+        )
 
     if current_user.avatar.startswith("data:image/"):
         header, _, payload = current_user.avatar.partition(",")
@@ -467,17 +487,25 @@ async def get_avatar_file(
             ) from exc
 
     if not current_user.avatar.startswith("/api/avatars/"):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Avatar not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Avatar not found"
+        )
 
     path = _avatar_path_from_reference(current_user.avatar)
     if not path:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Avatar not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Avatar not found"
+        )
     if not os.path.exists(path):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Avatar not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Avatar not found"
+        )
 
     filename = os.path.basename(path)
     media_type = "image/jpeg" if filename.lower().endswith(".jpg") else "image/png"
-    return FileResponse(path, media_type=media_type, headers={"Cache-Control": "private, no-store"})
+    return FileResponse(
+        path, media_type=media_type, headers={"Cache-Control": "private, no-store"}
+    )
 
 
 @router.delete("/me/avatar", response_model=UserResponse)
@@ -524,7 +552,9 @@ async def delete_me(
     await db.delete(current_user)
     await db.commit()
     try:
-        await email_service.send_account_deleted_email(user_email, user_display_name, user_locale)
+        await email_service.send_account_deleted_email(
+            user_email, user_display_name, user_locale
+        )
     except Exception:
         logger.warning("Failed to send account-deleted email to %s", user_email)
 
@@ -578,7 +608,9 @@ async def verify_email(
         )
     user = await db.get(User, int(user_id_str))
     if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
     user.is_verified = True
     await db.commit()
     await redis.delete(f"verify_email:{token}")
@@ -636,7 +668,9 @@ async def forgot_password(
         await email_service.send_reset_password_email(
             user.email, user.display_name, reset_token, locale=user.native_language
         )
-    return {"detail": "If that email is registered you will receive a reset link shortly"}
+    return {
+        "detail": "If that email is registered you will receive a reset link shortly"
+    }
 
 
 @router.post("/reset-password")
@@ -655,7 +689,9 @@ async def reset_password(
         )
     user = await db.get(User, int(user_id_str))
     if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
     user.hashed_password = hash_password(data.new_password)
     await db.commit()
     await redis.delete(f"reset_password:{data.token}")

@@ -45,6 +45,7 @@ export const TARGET_LANGUAGE_CAPABILITIES: Record<
   'pt-PT': LATIN_LANGUAGE_CAPABILITY,
   'fr-FR': LATIN_LANGUAGE_CAPABILITY,
   'de-DE': LATIN_LANGUAGE_CAPABILITY,
+  'xh-ZA': LATIN_LANGUAGE_CAPABILITY,
   'ja-JP': {
     script: 'hiragana-katakana-kanji',
     fontClass: 'font-target-ja',
@@ -124,6 +125,13 @@ export const TARGET_LANGUAGE_CATALOG: TargetLanguage[] = [
     nameEn: 'German',
     flagPath: '/flags/germany.jpg',
     iso639: 'de',
+  }),
+  withCapabilities({
+    code: 'xh-ZA',
+    name: 'isiXhosa',
+    nameEn: 'Xhosa',
+    flagPath: '/flags/south_africa.svg',
+    iso639: 'xh',
   }),
   withCapabilities({
     code: 'ja-JP',

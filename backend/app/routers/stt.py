@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 
 from app.core.deps import get_current_user
 from app.core.limiter import limiter
@@ -13,6 +13,7 @@ router = APIRouter(prefix="/api", tags=["stt"])
 async def speech_to_text(
     request: Request,
     audio: UploadFile = File(...),
+    language: str = Form("en"),
     current_user: User = Depends(get_current_user),
 ) -> STTResponse:
     """Proxy STT request to Whisper service. Returns transcribed text."""
@@ -29,5 +30,6 @@ async def speech_to_text(
         audio_bytes,
         audio.filename or "audio.webm",
         mime_type=audio.content_type or "audio/webm",
+        language=language,
     )
     return STTResponse(text=text)
