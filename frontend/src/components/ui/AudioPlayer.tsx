@@ -45,6 +45,7 @@ export function AudioPlayer({
 
   useEffect(() => {
     controllerRef.current?.abort()
+    controllerRef.current = null
     audioRef.current?.pause()
     audioRef.current = null
     if (objectUrlRef.current) {
@@ -55,6 +56,7 @@ export function AudioPlayer({
 
     return () => {
       controllerRef.current?.abort()
+      controllerRef.current = null
       audioRef.current?.pause()
       audioRef.current = null
       if (objectUrlRef.current) {
@@ -126,6 +128,7 @@ export function AudioPlayer({
       const blobStart = performance.now()
       const blob = await res.blob()
       const blobMs = performance.now() - blobStart
+      if (controllerRef.current !== controller) return
 
       const url = URL.createObjectURL(blob)
       objectUrlRef.current = url
@@ -183,6 +186,7 @@ export function AudioPlayer({
       }
     } catch {
       clearTimeout(timeoutId)
+      if (controllerRef.current !== controller) return
       setState('error')
     }
   }

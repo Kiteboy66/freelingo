@@ -329,6 +329,26 @@ describe('AudioPlayer', () => {
     expect(revokeCalls).toContain('blob:fake-url-1')
   })
 
+  it('ignores a cancelled request after the phrase changes', async () => {
+    fetchMock.mockImplementationOnce(
+      (_url: string, options: { signal: AbortSignal }) =>
+        new Promise((_resolve, reject) => {
+          options.signal.addEventListener('abort', () => {
+            reject(new DOMException('Aborted', 'AbortError'))
+          })
+        })
+    )
+
+    const { rerender } = render(<AudioPlayer text="Molo!" />)
+    fireEvent.click(screen.getByRole('button'))
+    await waitFor(() => expect(screen.getByText(LOADING)).toBeDefined())
+
+    rerender(<AudioPlayer text="Unjani?" />)
+
+    await waitFor(() => expect(screen.getByText(PLAY)).toBeDefined())
+    expect(screen.queryByText(ERROR)).toBeNull()
+  })
+
   // ───────────── VOICE RESOLUTION ─────────────
 
   it('sends explicit voice prop in request body', async () => {
