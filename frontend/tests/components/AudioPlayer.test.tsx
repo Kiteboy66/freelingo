@@ -312,6 +312,23 @@ describe('AudioPlayer', () => {
     expect(screen.getByText(PLAY)).toBeDefined()
   })
 
+  it('stops the old clip and resets when the phrase changes', async () => {
+    fetchMock.mockResolvedValueOnce(makeOkResponse())
+
+    const { rerender } = render(<AudioPlayer text="Molo!" />)
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button'))
+    })
+    await waitFor(() => expect(screen.getByText(PAUSE)).toBeDefined())
+    const previousAudio = currentAudioMock
+
+    rerender(<AudioPlayer text="Unjani?" />)
+
+    expect(previousAudio!.pause).toHaveBeenCalled()
+    expect(screen.getByText(PLAY)).toBeDefined()
+    expect(revokeCalls).toContain('blob:fake-url-1')
+  })
+
   // ───────────── VOICE RESOLUTION ─────────────
 
   it('sends explicit voice prop in request body', async () => {

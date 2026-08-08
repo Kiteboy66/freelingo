@@ -30,6 +30,7 @@ export function AudioPlayer({
 }: AudioPlayerProps) {
   const [state, setState] = useState<PlayerState>('idle')
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  const objectUrlRef = useRef<string | null>(null)
   const controllerRef = useRef<AbortController | null>(null)
   const accessToken = useAuthStore((s) => s.accessToken)
   const activeLanguage = useLanguageStore((s) => s.activeLanguage)
@@ -42,7 +43,26 @@ export function AudioPlayer({
       ? (localStorage.getItem('tts_voice') ?? undefined)
       : undefined)
 
-  useEffect(() => () => controllerRef.current?.abort(), [])
+  useEffect(() => {
+    controllerRef.current?.abort()
+    audioRef.current?.pause()
+    audioRef.current = null
+    if (objectUrlRef.current) {
+      URL.revokeObjectURL(objectUrlRef.current)
+      objectUrlRef.current = null
+    }
+    setState('idle')
+
+    return () => {
+      controllerRef.current?.abort()
+      audioRef.current?.pause()
+      audioRef.current = null
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current)
+        objectUrlRef.current = null
+      }
+    }
+  }, [audioUrl, text])
 
   async function handleClick() {
     if (state === 'loading') return
@@ -50,6 +70,10 @@ export function AudioPlayer({
     if (state === 'playing') {
       audioRef.current?.pause()
       audioRef.current = null
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current)
+        objectUrlRef.current = null
+      }
       setState('idle')
       return
     }
@@ -104,6 +128,7 @@ export function AudioPlayer({
       const blobMs = performance.now() - blobStart
 
       const url = URL.createObjectURL(blob)
+      objectUrlRef.current = url
       const audio = new Audio(url)
       audioRef.current = audio
       setState('playing')
@@ -146,11 +171,13 @@ export function AudioPlayer({
 
       audio.onended = () => {
         URL.revokeObjectURL(url)
+        if (objectUrlRef.current === url) objectUrlRef.current = null
         audioRef.current = null
         setState('idle')
       }
       audio.onerror = () => {
         URL.revokeObjectURL(url)
+        if (objectUrlRef.current === url) objectUrlRef.current = null
         audioRef.current = null
         setState('error')
       }
